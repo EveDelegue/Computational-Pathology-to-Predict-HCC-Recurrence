@@ -1,7 +1,6 @@
 <p align="center">
   <strong style="color:#d73a49; font-size:1.2em;">
-    <!-- 🚧 WORK IN PROGRESS — Code cleaning and upload in progress 🚧 -->
-    Code is ready to be used.
+     🚧 WORK IN PROGRESS — Code cleaning and upload in progress 🚧
   </strong>
 </p>
 
@@ -29,23 +28,6 @@ __Authors:__ Astrid Laurent-Bellue*, Aymen Sadraoui*, Aurélie Beaufrère, Julie
   <img src="figures/Fig4_distribution_of_patients_KbHmBj_UPDATED.jpg"
        alt="data_dist"
        width="600"
-       style="max-width:100%; height:auto;" />
-</p>
-
-### Results
-#### Main cohort: Paul-Brousse
-<p align="center">
-  <img src="figures/Figure5.jpg"
-       alt="Internal_Cohort"
-       width="750"
-       style="max-width:100%; height:auto;" />
-</p>
-
-#### External cohorts: Henri-Mondor & Beaujon
-<p align="center">
-  <img src="figures/Figure6.jpg"
-       alt="external_Cohort"
-       width="750"
        style="max-width:100%; height:auto;" />
 </p>
 
@@ -149,21 +131,14 @@ keywords={Image processing; Neural networks; Proximal gradient; unrolling; stain
 
 ### Installation
 Clone the repo and `cd` into the directory:
-```
-git clone https://github.com/aymenSadraoui/ML-Model-Integrating-Computational-Pathology-to-Predict-Early-Recurrence-of-HCC.git
-cd ML-Model-Integrating-Computational-Pathology-to-Predict-Early-Recurrence-of-HCC
-```
+
 Then create a conda env and install the dependencies:
-```
-conda create -n prognosis python=3.12 -y
-conda activate prognosis
-pip install -e .
-```
+
 
 ### Contact
 For any questions or inquiries regarding this project, you can reach me at:  
-- **Primary email:** aymen.sadraoui@centralesupelec.fr 
-- **Secondary email:** aymen.sadraoui@universite-paris-saclay.fr
+- **Primary email:** eve.delegue@centralesupelec.fr 
+- **Secondary email:** eve.delegue@ens-paris-saclay.fr
 
 
 
