@@ -1,0 +1,143 @@
+RESEARCH-ONLY NON-COMMERCIAL LICENSE WITH MANDATORY CITATION
+Version 1.0
+
+Copyright © 2026 [Aymen Sadraoui / CentraleSupélec]
+
+--------------------------------------------------------------------------------
+
+1. DEFINITIONS
+
+"Work" means the source code, trained or untrained models, scripts,
+configuration files, documentation, and any other materials made
+available in this repository.
+
+"You" (or "Your") means any individual or legal entity exercising
+permissions granted under this License.
+
+"Research Use" means use solely for non-commercial academic research,
+scientific experimentation, evaluation, benchmarking, or educational
+purposes.
+
+"Commercial Use" means any use primarily intended for or directed
+toward commercial advantage, monetary compensation, product or service
+development, clinical or industrial deployment, proprietary internal
+business use, or any use in a for-profit context.
+
+"Associated Publications" means all scientific articles, preprints,
+theses, or technical reports listed in the CITATION file, README, or
+repository documentation.
+
+--------------------------------------------------------------------------------
+
+2. GRANT OF LICENSE (RESEARCH USE ONLY)
+
+Subject to the terms and conditions of this License, the Licensor grants
+You a non-exclusive, non-transferable, royalty-free license to use,
+copy, modify, and distribute the Work and Derivative Works solely for
+Research Use.
+
+All rights not expressly granted are reserved by the Licensor.
+
+--------------------------------------------------------------------------------
+
+3. PROHIBITION OF COMMERCIAL USE
+
+Commercial Use of the Work or any Derivative Works is strictly prohibited
+without prior explicit written permission from the Licensor.
+
+This prohibition includes, but is not limited to:
+- Use in commercial products or services;
+- Integration into proprietary or for-profit systems;
+- Clinical, diagnostic, or decision-making use in production settings;
+- Sale, licensing, sublicensing, or monetization of the Work or its
+  outputs.
+
+--------------------------------------------------------------------------------
+
+4. MANDATORY CITATION REQUIREMENT
+
+Any use of the Work, in whole or in part, including the use of trained
+models, generated results, figures, or derived outputs, MUST cite all
+Associated Publications.
+
+Citations must be included in academic papers, preprints, theses,
+presentations, posters, reports, and any public disclosure of results.
+
+Failure to provide proper citation constitutes a material breach of
+this License.
+
+--------------------------------------------------------------------------------
+
+5. THIRD-PARTY COMPONENTS AND LICENSE COMPLIANCE
+
+The Work may incorporate components originating from third-party
+sources.
+
+You are solely responsible for complying with all applicable third-
+party licenses. This License does not supersede, modify, or replace any
+third-party license terms. In the event of a conflict, the more
+restrictive license shall prevail.
+
+--------------------------------------------------------------------------------
+
+6. REDISTRIBUTION
+
+Redistribution of the Work or Derivative Works is permitted only if:
+(a) This License is included in full;
+(b) All copyright, attribution, and license notices are preserved;
+(c) Modifications are clearly indicated;
+(d) Redistribution is limited strictly to Research Use;
+(e) The citation requirement in Section 4 is preserved.
+
+--------------------------------------------------------------------------------
+
+7. NO PATENT GRANT
+
+This License does not grant any patent rights, whether express or
+implied.
+
+--------------------------------------------------------------------------------
+
+8. DISCLAIMER OF WARRANTY
+
+THE WORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, OR ACCURACY.
+
+--------------------------------------------------------------------------------
+
+9. LIMITATION OF LIABILITY
+
+IN NO EVENT SHALL THE LICENSOR OR CONTRIBUTORS BE LIABLE FOR ANY CLAIM,
+DAMAGES, OR OTHER LIABILITY, WHETHER IN CONTRACT, TORT, OR OTHERWISE,
+ARISING FROM, OUT OF, OR IN CONNECTION WITH THE WORK OR THE USE OR
+INABILITY TO USE THE WORK.
+
+--------------------------------------------------------------------------------
+
+10. TERMINATION
+
+Any violation of this License automatically terminates the rights
+granted herein. Upon termination, You must immediately cease all use
+and destroy all copies of the Work.
+
+--------------------------------------------------------------------------------
+
+11. GOVERNING LAW
+
+This License shall be governed by and construed in accordance with the
+laws of France.
+
+--------------------------------------------------------------------------------
+
+12. COMMERCIAL LICENSING
+
+For commercial use, licensing, or deployment inquiries, contact:
+
+Aymen Sadraoui
+CentraleSupélec, Université Paris-Saclay, France
+aymen.sadraoui@centralesupelec.fr
+
+
+--------------------------------------------------------------------------------
+END OF LICENSE
