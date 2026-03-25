@@ -8,13 +8,13 @@
   <img src="https://img.shields.io/badge/status-work_in_progress-red" />
 </p> -->
 
-
 ## Machine Learning Model Integrating Computational Pathology to Predict Early Recurrence of Hepatocellular Carcinoma after Resection.
 
 This repository contains the code and supplementary materials for our article:
 *Machine Learning Model Integrating Computational Pathology to Predict Early Recurrence of Hepatocellular Carcinoma after Resection.*
 
-__Authors:__ Astrid Laurent-Bellue*, Aymen Sadraoui*, Aurélie Beaufrère, Julien Calderaro, Katia Posseme, Véronique Bruna, Antoinette Lemoine, Agnès Bourillon, Antonio Sa Cunha, Daniel Cherqui, Eric Vibert, Olivier Rosmorduc, Valérie Paradis, Maïté Lewin, Jean-Christophe Pesquet, Catherine Guettier.<br>*These authors contributed equally to this work.
+__Authors:__ Astrid Laurent-Bellue*, Aymen Sadraoui*, Aurélie Beaufrère, Julien Calderaro, Katia Posseme, Véronique Bruna, Antoinette Lemoine, Agnès Bourillon, Antonio Sa Cunha, Daniel Cherqui, Eric Vibert, Olivier Rosmorduc, Valérie Paradis, Maïté Lewin, Jean-Christophe Pesquet, Catherine Guettier.`<br>`*These authors contributed equally to this work.
+
 <p align="center">
   <img src="figures/graphical_abstract_UPDATED.jpg"
        alt="Graphical abstract"
@@ -22,8 +22,8 @@ __Authors:__ Astrid Laurent-Bellue*, Aymen Sadraoui*, Aurélie Beaufrère, Julie
        style="max-width:100%; height:auto;" />
 </p>
 
-
 ### Data
+
 <p align="center">
   <img src="figures/Fig4_distribution_of_patients_KbHmBj_UPDATED.jpg"
        alt="data_dist"
@@ -32,6 +32,7 @@ __Authors:__ Astrid Laurent-Bellue*, Aymen Sadraoui*, Aurélie Beaufrère, Julie
 </p>
 
 ### Repository Structure
+
 ```
 🧬 ML-Model-Integrating-Computational-Pathology-to-Predict-Early-Recurrence-of-HCC
     └── 💾checkpoints
@@ -96,13 +97,16 @@ __Authors:__ Astrid Laurent-Bellue*, Aymen Sadraoui*, Aurélie Beaufrère, Julie
 ```
 
 ### Pretrained Weights (TripleResNet)
+
 The pretrained weights for **TripleResNet34** are hosted externally due to their size.
 You can download them from Google Drive:
+
 - **Link:** [TripleResNet pretrained weights](https://drive.google.com/drive/folders/1pLChhs3gZIosXJnp8SyjSAEyNVn88Ffo?usp=drive_link)
 
 After downloading, place the weight files in the appropriate directory `models/`.
 
 > 📄 Note 1: If you use these pretrained models in your work, please consider citing:
+
 ```
 @article{LAURENTBELLUE20241684,
 title = {Deep Learning Classification and Quantification of Pejorative and Nonpejorative Architectures in Resected Hepatocellular Carcinoma from Digital Histopathologic Images},
@@ -117,6 +121,7 @@ author = {Astrid Laurent-Bellue and Aymen Sadraoui and Laura Claude and Julien C
 ```
 
 > 📄 Note 2: If you use the `PGA model` in your work (for stain separation), please consider citing:
+
 ```
 @INPROCEEDINGS{10648171,
 title={Unrolled Projected Gradient Algorithm For Stain Separation In Digital Histopathological Images}, 
@@ -128,19 +133,38 @@ keywords={Image processing; Neural networks; Proximal gradient; unrolling; stain
 }
 ```
 
-
 ### Installation
+
 Clone the repo and `cd` into the directory:
+
+```
+git clone https://github.com/EveDelegue/Computational-Pathology-to-Predict-HCC-Recurrence.git
+cd Computational-Pathology-to-Predict-HCC-Recurrence
+```
 
 Then create a conda env and install the dependencies:
 
+```
+conda create -n chc_prognosis python=3.11
+conda activate chc_prognosis
+pip install -e .
+```
+
+### Experiments
+
+Use the steps one by one:
+
+```
+sh scripts/run_step1.sh
+```
+
 
 ### Contact
-For any questions or inquiries regarding this project, you can reach me at:  
-- **Primary email:** eve.delegue@centralesupelec.fr 
+
+For any questions or inquiries regarding this project, you can reach me at:
+
+- **Primary email:** eve.delegue@centralesupelec.fr
 - **Secondary email:** eve.delegue@ens-paris-saclay.fr
-
-
 
 <div align="center">
   <img src="figures/centrale_supelec.png" alt="Centrale Supélec" width="270" style="max-width: 100%; height: auto; margin: 0 15px;"/>

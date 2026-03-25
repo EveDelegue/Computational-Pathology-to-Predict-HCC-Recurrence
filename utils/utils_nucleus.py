@@ -80,6 +80,29 @@ def getCleanMask(mask, kernel):
     opened_mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
     return opened_mask
 
+def get_contours(
+    inst_dict: dict, inst_colours: np.ndarray | tuple[int, int, int] = (255, 255, 0)
+):
+    if inst_colours is None:
+        inst_colours = random_colors(len(inst_dict), bright=True)
+
+    if not isinstance(inst_colours, (tuple, np.ndarray)):
+        msg = f"`inst_colours` must be np.ndarray or tuple: {type(inst_colours)}."
+        raise TypeError(
+            msg,
+        )
+
+    inst_colours_array = np.array(inst_colours) * 255
+
+    if isinstance(inst_colours, tuple):
+        inst_colours_array = np.array([inst_colours] * len(inst_dict))
+
+    inst_colours_array = inst_colours_array.astype(np.uint8)
+    contours = []
+    for _, [_, inst_info] in enumerate(inst_dict.items()):
+        inst_contour = inst_info["contour"]
+        contours.append(np.array(inst_contour))
+    return contours
 
 def detectContours(im, opened_mask):
     contours, _ = cv2.findContours(

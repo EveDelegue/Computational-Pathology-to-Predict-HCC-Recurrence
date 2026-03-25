@@ -1,9 +1,10 @@
 # Image patching parameters
 patching:
   vis_scale: 0.007
-  patch_size: 528
-  patch_size_hm: 280
-  patch_size_bj: 487
+  patch_size_dict: 
+    PB: 528
+    HM: 280
+    BJ: 487
   perc_wpx: 0.7
   perc_bpx: 0.05
   enlarge: 5
@@ -27,10 +28,23 @@ paths:
   pth_to_features: "data/features"
   pth_to_coords: "checkpoints/coords_checkpoints"
   pth_to_models: "data/models"
+  pth_to_tab: "data/tabs"
   pth_to_tumor_ckpts: "checkpoints/tumor_checkpoints"
   pth_to_inflams_dats: "checkpoints/inflam_dats"
   pth_to_inflams_ckpts: "checkpoints/inflam_checkpoints"
+  pth_to_nuc_ckpts: "checkpoints/nucleus_checkpoints"
+  results_path: "results"
+  overview_path: "results/overview_wsis"
   pth_to_preds_wsis: "results/overview_preds_tumor_wsis"
   pth_to_inflams_wsis: "results/overview_preds_inflam_wsis"
   pth_to_maps: "results/overview_maps"
   
+# stain separation
+staining:
+  hemato_1: [73, 119, 185.0] #H_1
+  eosin: [245, 143.0, 204] # E
+  safran: [248.0, 245, 152] #S
+  hemato_2: [123, 153, 198] #H_2
+
+# nuclear features
+nuc_features: ["density", "mean nucleus area","anisocaryose","nucleocyto index" ]

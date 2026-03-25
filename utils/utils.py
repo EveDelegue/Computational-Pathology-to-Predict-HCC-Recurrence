@@ -9,7 +9,7 @@ from matplotlib.patches import Rectangle
 from matplotlib.ticker import FuncFormatter
 
 
-def log_tick_formatter(x, pos):
+def log_tick_formatter(x):
     return f"{np.expm1(x):.0f}"
 
 
@@ -147,6 +147,7 @@ def generate_patches_from_wsi(
     vis_scale,
     overview_path,
     coords_path,
+    hospital_name= 'PB',
     perc_bpx=0.05,
     perc_wpx=0.85,
     enlarge=5,
@@ -154,11 +155,13 @@ def generate_patches_from_wsi(
 ):
     real_enlarge = int(enlarge / vis_scale)
     slide_name = f"{path_to_wsi}/{slide_name}"
+    # open the slide
     slide = openslide.OpenSlide(f"{slide_name}")
-    print(slide.dimensions)
     slide_w, slide_h = slide.dimensions
     W, H = int(slide_w * vis_scale), int(slide_h * vis_scale)
+    # read thumbnail
     array_slide = np.array(slide.get_thumbnail((W, H)).convert("RGB"))
+    # detect tissue
     xywh = detect_tissue_regions(array_slide)
     real_x, real_y, real_w, real_h = np.array(xywh // vis_scale, np.int64)
     x, y, width, height = xywh
@@ -182,7 +185,7 @@ def generate_patches_from_wsi(
     coords_x, coords_y = [], []
     range_x = range(real_x, real_x + real_w, step)
     range_y = range(real_y, real_y + real_h, step)
-    pth1 = path_to_patches + slide_name.split(".")[0]
+    pth1 = path_to_patches + slide_name.split(".")[0] + '_' + hospital_name
     Path(pth1).mkdir(exist_ok=True)
     with tqdm(total=len(range_x) * len(range_y), desc="Patch extraction") as pbar:
         for x in range_x:
@@ -196,26 +199,26 @@ def generate_patches_from_wsi(
                     coords_y.append(y)
                     patch.save(f"{pth1}/patch_x_{str(x)}_y_{str(y)}.jpg")
                     pbar.update(1)
-    fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, figsize=(18, 6))
-    fig.suptitle(slide_name, fontsize=18)
-    ax1.imshow(array_slide)
-    ax1.add_patch(Rectangle(xy=xywh[:2], width=xywh[-2], height=xywh[-1], edgecolor="k", lw=1.5, facecolor="none"))  # type: ignore
-    ax2.imshow(scaled_slide)
-    ax3.scatter(
-        np.array(coords_x) * vis_scale - x_start,
-        np.array(coords_y) * vis_scale - y_start,
-        c="g",
-        marker="s",
-        s=8,
-        alpha=0.3,
-        edgecolor="yellow",
-    )
-    ax3.imshow(scaled_slide)
-    for ax in [ax1, ax2, ax3]:
-        ax.axis("off")
-    plt.tight_layout()
-    plt.savefig(f"{overview_path}/{slide_name}_overview.png", dpi=150)
     if verbose:
+        fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, figsize=(18, 6))
+        fig.suptitle(slide_name, fontsize=18)
+        ax1.imshow(array_slide)
+        ax1.add_patch(Rectangle(xy=xywh[:2], width=xywh[-2], height=xywh[-1], edgecolor="k", lw=1.5, facecolor="none"))  # type: ignore
+        ax2.imshow(scaled_slide)
+        ax3.scatter(
+            np.array(coords_x) * vis_scale - x_start,
+            np.array(coords_y) * vis_scale - y_start,
+            c="g",
+            marker="s",
+            s=8,
+            alpha=0.3,
+            edgecolor="yellow",
+        )
+        ax3.imshow(scaled_slide)
+        for ax in [ax1, ax2, ax3]:
+            ax.axis("off")
+        plt.tight_layout()
+        plt.savefig(f"{overview_path}/{slide_name}_overview.png", dpi=150)
         plt.show()
 
     to_save = {
@@ -227,6 +230,7 @@ def generate_patches_from_wsi(
         "vis_scale": vis_scale,
     }
 
-    handle = f"{coords_path}/{slide_name}_coords_checkpoint.pt"
+    handle = f"{coords_path}/{slide_name+ '_' + hospital_name}_coords_checkpoint.pt"
     torch.save(to_save, handle)
-    print(slide_name, "done!")
+    if verbose:
+        print(slide_name, "done!")

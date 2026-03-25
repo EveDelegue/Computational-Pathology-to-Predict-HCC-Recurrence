@@ -1,11 +1,13 @@
 .venv
 results
+brouillons
+checkpoints
 util_nbks
 data
 __pycache__
 .vscode
 .ipynb_checkpoints
-ML_HCC_Recurrence_Prediction.egg-info
+*.egg-info
 
 *.mrxs
 *.ini
