@@ -7,6 +7,7 @@ from utils.utils import generate_patches_from_wsi
 def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--slide_name", type=str)
+    parser.add_argument("--verbose",type=bool,default=True)
     args = parser.parse_args()
     return args
 
@@ -23,19 +24,19 @@ def main():
     overview_path = config["paths"]["overview_path"]
 
     args = parse_arguments()
-    sn = args.slide_name
-    path_to_wsis = sn.split("Patient")[0]
-    hospital_name = sn.split(os.path.sep)[-3]
-    slide_name = "Patient_" + sn.split("_")[-1]
+    verbose = args.verbose
+    sn = args.slide_name # ex : data/WSIs/PB/Patient_93/93A.mrxs
+    path_to_wsis = sn.split("Patient")[0] # chemin avant la lame ex : data/WSIs/PB/
+    hospital_name = sn.split(os.path.sep)[-3] # nom du dossier contenant les patients ex : PB
+    slide_name = "Patient_" + sn.split("_")[-1] #Patient_ + numéro après le nom du patient ex : Patient_93/93A.mrxs
 
     patch_size_dict = config["patching"]["patch_size_dict"]
     if hospital_name not in patch_size_dict.keys():
-        
         raise KeyError(f"no resolution defined for this hospital : {hospital_name}. Check that the hospital's name in the config file is the same as in the data folder.")
 
     patch_size = step = patch_size_dict[hospital_name]
 
-    if slide_name.split("/")[-1].split(".")[0] not in os.listdir(patches_path):
+    if slide_name.split(os.path.sep)[-1].split(".")[0] not in os.listdir(patches_path): # ex : si 93A pas déjà parmis les patches
         generate_patches_from_wsi(
             slide_name,
             path_to_wsi=path_to_wsis,
@@ -49,6 +50,7 @@ def main():
             perc_wpx=perc_wpx,
             perc_bpx=perc_bpx,
             enlarge=enlarge,
+            verbose=verbose
         )
     else:
         print(slide_name, "exists")

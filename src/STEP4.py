@@ -9,7 +9,7 @@ import argparse
 import pandas as pd
 
 from tiatoolbox.models.engine.nucleus_instance_segmentor import NucleusInstanceSegmentor
-from utils.utils_nucleus import get_contours, vectorize,pinv, getHstain, segmentNucleus, computeFeatures
+from utils.utils_nucleus import get_contours_2, vectorize,pinv, getHstain, segmentNucleus, computeFeatures
 from utils.PGA import PGA
 import joblib
 
@@ -20,6 +20,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--slide_name", type=str)
+    parser.add_argument("--verbose",type=bool,default=True)
     args = parser.parse_args()
     return args
 
@@ -37,14 +38,16 @@ def main():
     vis_scale = config["patching"]["vis_scale"]
     tumor_checkpoints = config["paths"]["pth_to_tumor_ckpts"]
     patches_path = config["paths"]["pth_to_patches"]
+    save_dir = config["paths"]["pth_to_nuc_dats"]
 
 
-    Lambda = 1.15e-1
-    poids = (1.5, 1)
+    Lambda = config["staining"]["lambda"] 
+    poids = tuple(config["staining"]["poids"]) 
 
     # parse arguments
     args = parse_arguments()
-    slide_name = args.slide_name.split("/")[-1]
+    verbose = args.verbose
+    slide_name = args.slide_name.split(os.path.sep)[-1] #ex : 93A_PB
 
 
 
@@ -66,7 +69,7 @@ def main():
     pga = PGA(Wgt, device=device)
     
     
-    os.makedirs(f"data/patches_He/{slide_name}",exist_ok=True)
+    os.makedirs(f"data/patches_He/{slide_name}",exist_ok=True) # ex : data/patches_He/93A_PB
     # init model
     model = NucleusInstanceSegmentor(
         pretrained_model="hovernet_fast-pannuke", batch_size=256
@@ -80,11 +83,10 @@ def main():
     images = []
     for j in tqdm(range(len(y_har_preds)), desc="load images and gen Hematoxylin"):
         x, y, p = coords_x[j], coords_y[j], y_harmonic[j]
-        if p != 0:
+        if p != 0: # si pejorative
             try:
                 # read img
-                patch = f"patch_x_{x}_y_{y}.jpg"
-                im = plt.imread(f"{patches_path}{slide_name}/{patch}")
+                im = plt.imread(f"{patches_path}{slide_name}/{patch}") # ex : data/patches/93A_PB/patch_x_33956_y_93057.jpg
                 # stain separation
                 V = vectorize(im)
                 N, M, _ = im.shape
@@ -102,7 +104,6 @@ def main():
                 continue
     
     # segmentation on the He patch
-    save_dir = "checkpoints/nucleus_dats"
     images.sort()
     tile_output = model.predict(
         images,
@@ -125,13 +126,15 @@ def main():
     for i in tqdm(range(len(tile_output))):
         # compute nucleus features
         try:
+            # read pred
             tile_preds = joblib.load(f"{tile_output[i][1]}.dat")
+            # read patch
             im = plt.imread(tile_output[i][0])
-            contours = get_contours(inst_dict=tile_preds)
-            final_im = segmentNucleus(im, contours)
+            contours = get_contours_2(inst_dict=tile_preds)
+            final_im = segmentNucleus(im, contours) # create a 3 colors image, white, pink, blue
             density, mean_area, median_area, aniso, _, nucyto_idx = computeFeatures(
                 contours, final_im
-            )
+            ) 
             _, _, x, _, y, _ = str(tile_output[i][0]).split("/")[-1].split("_")
             all_x.append(int(x))
             all_y.append(int(y))

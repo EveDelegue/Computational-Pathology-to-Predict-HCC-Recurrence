@@ -33,6 +33,7 @@ paths:
   pth_to_inflams_dats: "checkpoints/inflam_dats"
   pth_to_inflams_ckpts: "checkpoints/inflam_checkpoints"
   pth_to_nuc_ckpts: "checkpoints/nucleus_checkpoints"
+  pth_to_nuc_dats: "checkpoints/nucleus_dats"
   results_path: "results"
   overview_path: "results/overview_wsis"
   pth_to_preds_wsis: "results/overview_preds_tumor_wsis"
@@ -45,6 +46,8 @@ staining:
   eosin: [245, 143.0, 204] # E
   safran: [248.0, 245, 152] #S
   hemato_2: [123, 153, 198] #H_2
+  lambda: 1.15e-1
+  poids: [1.5, 1]
 
 # nuclear features
 nuc_features: ["density", "mean nucleus area","anisocaryose","nucleocyto index" ]

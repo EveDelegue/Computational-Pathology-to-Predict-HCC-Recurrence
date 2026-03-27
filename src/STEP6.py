@@ -17,7 +17,6 @@ def main():
     with open("config.yaml", "r") as f:
         config = yaml.safe_load(f)
 
-    batch_size = config["model"]["batch_size"]
     patch_size = config["patching"]["patch_size_dict"]["PB"]
     colors = {
         0: config["visualization"]["colors"]["healthy"],
@@ -29,14 +28,10 @@ def main():
         1: config["visualization"]["colors"]["pej"],
         2: config["visualization"]["colors"]["pej"],
     }
-    classes = ["NT", "Non Pej", "Pej"]
 
     vis_scale = config["patching"]["vis_scale"]
     step = int(vis_scale * patch_size)
     padding = 2 * step
-    cmap = plt.get_cmap(config["visualization"]["color_map"])
-    normalizer = Normalize(0, 1)
-    im = cm.ScalarMappable(normalizer, cmap)
 
     tumor_checkpoints =  config["paths"]["pth_to_tumor_ckpts"]
     coords_checkpoints =  config["paths"]["pth_to_coords"]
@@ -79,8 +74,7 @@ def main():
         df_inflams["inflams"] = chkpt_inflam["inflams"]
 
         [x_start, y_start, _, _] = chkpt_coords["xy_start_end"]
-        y_TNT = [np.array(colors_TNT[p]) / 255 for p in df_tumor["tumor"].values]
-
+        
         df_map = pd.DataFrame(
             columns=["x", "y", "tumor", "inflams"], index=range(len(df_tumor))
         )

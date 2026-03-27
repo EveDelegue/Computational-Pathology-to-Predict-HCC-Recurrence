@@ -103,6 +103,22 @@ def load_models(pth):
     return models
 
 
+def get_pred_proba_multi_2(model, data_loader):
+    y_proba = torch.zeros(0, dtype=torch.long, device="cpu")
+    model.eval()
+    with torch.no_grad():
+        for inputs in tqdm(data_loader, desc="Prediction NT/NP/P"):
+            im1, im2, im3 = inputs
+            im1, im2, im3 = (
+                im1.cuda(),
+                im2.cuda(),
+                im3.cuda()
+            )
+            proba = torch.softmax(model(im1, im2, im3), dim=1)
+            y_proba = torch.cat([y_proba, proba.cpu()])
+            del proba, inputs, im1, im2, im3
+    return y_proba
+
 def get_pred_proba_multi(model, data_loader):
     y_preds = torch.zeros(0, dtype=torch.long, device="cpu")
     y_true = torch.zeros(0, dtype=torch.long, device="cpu")

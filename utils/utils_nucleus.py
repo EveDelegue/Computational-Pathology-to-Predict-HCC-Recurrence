@@ -92,7 +92,7 @@ def get_contours(
             msg,
         )
 
-    inst_colours_array = np.array(inst_colours) * 255
+    inst_colours_array = np.array(inst_colours) * 255 # problème de normalisation ici (255 pris deux fois)
 
     if isinstance(inst_colours, tuple):
         inst_colours_array = np.array([inst_colours] * len(inst_dict))
@@ -103,6 +103,15 @@ def get_contours(
         inst_contour = inst_info["contour"]
         contours.append(np.array(inst_contour))
     return contours
+
+def get_contours_2(inst_dict: dict):
+    
+    contours = []
+    for _, [_, inst_info] in enumerate(inst_dict.items()):
+        inst_contour = inst_info["contour"]
+        contours.append(np.array(inst_contour))
+    return contours
+
 
 def detectContours(im, opened_mask):
     contours, _ = cv2.findContours(
