@@ -2,9 +2,9 @@
 patching:
   vis_scale: 0.007
   patch_size_dict: 
-    PB: 528
-    HM: 280
-    BJ: 487
+    PB: 1152
+    HM: 626
+    BJ: 1094
   perc_wpx: 0.7
   perc_bpx: 0.05
   enlarge: 5

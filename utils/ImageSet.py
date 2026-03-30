@@ -21,7 +21,7 @@ class ImageSet_2(Dataset):
         self.transforms=transforms
 
     def __len__(self):
-        return len(self.y)
+        return len(self.X)
 
     def __getitem__(self,idx):
         im1,im2,im3=self.X[idx]

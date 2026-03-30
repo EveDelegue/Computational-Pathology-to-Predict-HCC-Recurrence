@@ -1,4 +1,4 @@
-.venv
+.venv*
 results
 brouillons
 checkpoints
@@ -8,6 +8,10 @@ __pycache__
 .vscode
 .ipynb_checkpoints
 *.egg-info
+
+*_brouillon.sh
+*_brouillon.py
+
 
 *.mrxs
 *.ini

@@ -86,7 +86,7 @@ def main():
         with torch.no_grad():
             for i, m in enumerate(models):
                 print(f"model {i+1}", end=" ")
-                _, _, y_proba = get_pred_proba_multi_2(m, loader)
+                y_proba = get_pred_proba_multi_2(m, loader)
                 all_y_probas.append(y_proba)
 
         # ensembling

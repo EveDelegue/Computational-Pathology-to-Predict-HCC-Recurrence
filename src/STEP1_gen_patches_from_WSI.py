@@ -36,7 +36,7 @@ def main():
 
     patch_size = step = patch_size_dict[hospital_name]
 
-    if slide_name.split(os.path.sep)[-1].split(".")[0] not in os.listdir(patches_path): # ex : si 93A pas déjà parmis les patches
+    if slide_name.split(os.path.sep)[-1].split(".")[0]+'_' + hospital_name not in os.listdir(patches_path): # ex : si 93A_PB pas déjà parmis les patches
         generate_patches_from_wsi(
             slide_name,
             path_to_wsi=path_to_wsis,

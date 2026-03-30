@@ -4,17 +4,17 @@ python src/STEP0_create_directories.py
 wsi_path="data/WSIs/PB/*/*.mrxs"
 for wsi in $wsi_path; do
     echo "processing $wsi"
-    python src/STEP1_gen_patches_from_WSI.py --slide_name "$wsi"
+    python src/STEP1_gen_patches_from_WSI.py --slide_name "$wsi" --verbose True
 done
 
 wsi_path="data/patches/*"
 for wsi in $wsi_path; do
     echo "processing $wsi"
-    python src/STEP2_detect_tumor_from_WSI.py --slide_name "$wsi"
+    python src/STEP2_detect_tumor_from_WSI.py --slide_name "$wsi" --verbose True
     echo "detecting inflammatory cells on $wsi"
-    python src/STEP3_detect_inflammatory_cells.py --slide_name "$wsi"
+    python src/STEP3_detect_inflammatory_cells.py --slide_name "$wsi" --verbose True
     echo "detecting nucleus features on $wsi"
-    python src/STEP4.py --slide_name "$wsi"
+    python src/STEP4.py --slide_name "$wsi" --verbose True
 done
 
 python src/STEP5.py
