@@ -1,13 +1,14 @@
 import argparse
 import yaml
 import os
-from utils.utils import generate_patches_from_wsi
+from utils.utils import generate_patches_from_wsi, generate_patches_from_wsi_2
 
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--slide_name", type=str)
     parser.add_argument("--verbose",type=bool,default=True)
+    parser.add_argument("--tia_patch_size",type=int,default=256)
     args = parser.parse_args()
     return args
 
@@ -20,6 +21,7 @@ def main():
     perc_wpx = config["patching"]["perc_wpx"]
     perc_bpx = config["patching"]["perc_bpx"]
     patches_path = config["paths"]["pth_to_patches"]
+    patches_path_bis = config["paths"]["pth_to_patches_bis"]
     coords_path = config["paths"]["pth_to_coords"]
     overview_path = config["paths"]["overview_path"]
 
@@ -31,11 +33,15 @@ def main():
     slide_name = "Patient_" + sn.split("_")[-1] #Patient_ + numéro après le nom du patient ex : Patient_93/93A.mrxs
 
     patch_size_dict = config["patching"]["patch_size_dict"]
-    if hospital_name not in patch_size_dict.keys():
-        raise KeyError(f"no resolution defined for this hospital : {hospital_name}. Check that the hospital's name in the config file is the same as in the data folder.")
+    mpp_dict = config["patching"]["mpp_dict"]
+    if (hospital_name not in patch_size_dict.keys()) or (hospital_name not in mpp_dict.keys()):
+        raise KeyError(f"no resolution defined for this hospital : {hospital_name}. Check that the hospital's name in the config file at mpp and patch_size is the same as in the data folder.")
 
     patch_size = step = patch_size_dict[hospital_name]
+    mpp = mpp_dict[hospital_name]
 
+
+    # generate patches for tumor detection
     if slide_name.split(os.path.sep)[-1].split(".")[0]+'_' + hospital_name not in os.listdir(patches_path): # ex : si 93A_PB pas déjà parmis les patches
         generate_patches_from_wsi(
             slide_name,
@@ -54,6 +60,28 @@ def main():
         )
     else:
         print(slide_name, "exists")
+    
+    # generate patches for nucleus segmentation
+    if slide_name.split(os.path.sep)[-1].split(".")[0]+'_' + hospital_name not in os.listdir(patches_path_bis): # ex : si 93A_PB pas déjà parmis les patches
+        generate_patches_from_wsi_2(
+            slide_name,
+            path_to_wsi=path_to_wsis,
+            patch_size=patch_size,
+            mpp= mpp,
+            step=step,
+            path_to_patches=patches_path_bis,
+            vis_scale=vis_scale,
+            overview_path=overview_path,
+            hospital_name=hospital_name,
+            coords_path=coords_path,
+            perc_wpx=perc_wpx,
+            perc_bpx=perc_bpx,
+            enlarge=enlarge,
+            verbose=verbose
+        )
+    else:
+        print(slide_name.split(os.path.sep)[-1].split(".")[0]+'_' + hospital_name, "exists")
+  
 
 
 if __name__ == "__main__":

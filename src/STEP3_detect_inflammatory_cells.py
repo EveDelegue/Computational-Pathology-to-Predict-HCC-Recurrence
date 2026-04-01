@@ -12,6 +12,7 @@ from utils.utils_inflams import (
     color_dict_pannuke,
     get_Inflammatory,
 )
+import multiprocessing
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print("running on", device)
@@ -41,7 +42,7 @@ def main():
 
     vis_scale = config["patching"]["vis_scale"]
     pth_to_inflams_dats = config["paths"]["pth_to_inflams_dats"]
-    patches_dir = config["paths"]["pth_to_patches"]
+    patches_dir = config["paths"]["pth_to_patches_bis"]
     coords_checkpoints = config["paths"]["pth_to_coords"]
     inflams_checkpoints = config["paths"]["pth_to_inflams_ckpts"]
     inflams_wsis_results = config["paths"]["pth_to_inflams_wsis"]
@@ -69,11 +70,13 @@ def main():
         # init model
         if hovernet in ["pannuke", "monusac"]:
             model = NucleusInstanceSegmentor(
-                pretrained_model="hovernet_fast-" + hovernet, batch_size=batch_size
+                model="hovernet_fast-" + hovernet, batch_size=batch_size, 
+                device=device, num_workers=multiprocessing.cpu_count()//2
             )
         else:
             model = NucleusInstanceSegmentor(
-                pretrained_model="hovernet_original-consep", batch_size=batch_size
+                model="hovernet_original-consep", batch_size=batch_size,
+                device=device, num_workers=multiprocessing.cpu_count()//2
             )
 
         save_dir = f"{pth_to_inflams_dats}/{slide_name}/" # ex : checkpoints/inflam_dats/93A_PB
@@ -83,12 +86,11 @@ def main():
         ]
 
         # detect nucleus
-        model.predict(
+        model.run(
             images,
-            mode="tile",
             save_dir=save_dir,
-            device=device,
-            crash_on_exception=True,
+            input_resolutions=[{"units": "baseline", "resolution": 1.0}],
+            auto_get_mask=False,
         )
 
         # load the output data

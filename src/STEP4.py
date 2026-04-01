@@ -37,8 +37,10 @@ def main():
 
     vis_scale = config["patching"]["vis_scale"]
     tumor_checkpoints = config["paths"]["pth_to_tumor_ckpts"]
-    patches_path = config["paths"]["pth_to_patches"]
+    patches_path = config["paths"]["pth_to_patches_bis"]
     save_dir = config["paths"]["pth_to_nuc_dats"]
+
+    path_to_verbose = config["paths"]["pth_to_nuc_viz"]
 
 
     Lambda = config["staining"]["lambda"] 
@@ -135,6 +137,10 @@ def main():
             density, mean_area, median_area, aniso, _, nucyto_idx = computeFeatures(
                 contours, final_im
             ) 
+            if i%1000==1 and verbose:
+                plt.imsave(os.path.join(path_to_verbose,'He_'+tile_output[i][0]),im)
+                plt.imsave(os.path.join(path_to_verbose,'colored_'+tile_output[i][0]),final_im)
+                
             _, _, x, _, y, _ = str(tile_output[i][0]).split("/")[-1].split("_")
             all_x.append(int(x))
             all_y.append(int(y))

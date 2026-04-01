@@ -137,6 +137,110 @@ def color_transfer(target, reference):
     return cv2.cvtColor(norm_lab, cv2.COLOR_LAB2RGB)
 
 
+def generate_patches_from_wsi_2(
+    slide_name,
+    path_to_wsi,
+    patch_size,
+    step,
+    path_to_patches,
+    vis_scale,
+    overview_path,
+    coords_path,
+    hospital_name= 'PB',
+    perc_bpx=0.05,
+    perc_wpx=0.85,
+    enlarge=5,
+    verbose=False,
+    mpp=0.25
+):
+    real_enlarge = int(enlarge / vis_scale) # ?
+    slide_name = f"{path_to_wsi}/{slide_name}" # ex : data/WSIs/PB/Patient_93/93A.mrxs
+    # open the slide
+    slide = openslide.OpenSlide(f"{slide_name}")
+    slide_w, slide_h = slide.dimensions 
+    W, H = int(slide_w * vis_scale), int(slide_h * vis_scale) # dimensions à l'echelle
+    # read thumbnail
+    array_slide = np.array(slide.get_thumbnail((W, H)).convert("RGB")) # downscaled with a vis_scale factor
+    # detect tissue
+    xywh = detect_tissue_regions(array_slide)
+    real_x, real_y, real_w, real_h = np.array(xywh // vis_scale, np.int64)
+    x, y, width, height = xywh
+    x_start, y_start, x_end, y_end = (
+        max(0, x - enlarge),
+        max(0, y - enlarge),
+        x + enlarge,
+        y + enlarge,
+    )
+    real_x, real_y, real_w, real_h = ( 
+        max(0, real_x - real_enlarge),
+        max(0, real_y - real_enlarge),
+        real_w + real_enlarge,
+        real_h + real_enlarge,
+    ) # real coords in the high res slide
+
+    scaled_slide = np.array(array_slide)[
+        y_start : y_end + height, x_start : x_end + width
+    ] # slide with only the zone containing tissue
+
+    slide_name = slide_name.split("/")[-1].split(".")[0] # ex : 93A
+    coords_x, coords_y = [], []
+    range_x = range(real_x, real_x + real_w, step)
+    range_y = range(real_y, real_y + real_h, step)
+    pth1 = path_to_patches + slide_name + '_' + hospital_name # ex : data/patches/93A_PB
+    os.makedirs(pth1,exist_ok=True)
+
+
+    real_patch_size = int(patch_size*0.25/mpp) # to ensure mpp = 0.25
+    with tqdm(total=len(range_x) * len(range_y), desc="Patch extraction") as pbar: # create a progress bar
+        for x in range_x:
+            for y in range_y:
+                patch = slide.read_region((x, y), 0, (real_patch_size, real_patch_size)).convert(
+                    "RGB"
+                ) # read the patch
+                wpx, bpx = get_BrightandDark_perc(patch) # compute the black/white ratio
+                if wpx < perc_wpx and bpx < perc_bpx: # if not too much white and not too much black
+                    coords_x.append(x)
+                    coords_y.append(y)
+                    patch = patch.resize((patch_size,patch_size))
+                    patch.save(f"{pth1}/patch_x_{str(x)}_y_{str(y)}.jpg") # save to jpg (should be modified to lossless like png)
+                    pbar.update(1)
+    if verbose:
+        fig, (ax1, ax2, ax3) = plt.subplots(nrows=1, ncols=3, figsize=(18, 6))
+        fig.suptitle(slide_name, fontsize=18)
+        ax1.imshow(array_slide)
+        ax1.add_patch(Rectangle(xy=xywh[:2], width=xywh[-2], height=xywh[-1], edgecolor="k", lw=1.5, facecolor="none"))  # type: ignore
+        ax2.imshow(scaled_slide)
+        ax3.scatter(
+            np.array(coords_x) * vis_scale - x_start,
+            np.array(coords_y) * vis_scale - y_start,
+            c="g",
+            marker="s",
+            s=8,
+            alpha=0.3,
+            edgecolor="yellow",
+        )
+        ax3.imshow(scaled_slide)
+        for ax in [ax1, ax2, ax3]:
+            ax.axis("off")
+        plt.tight_layout()
+        plt.savefig(f"{overview_path}/{slide_name}_overview.png", dpi=150)
+        plt.show()
+
+    to_save = {
+        "coords_x": coords_x,
+        "coords_y": coords_y,
+        "xy_start_end": [x_start, y_start, x_end, y_end],
+        "xywh_real": [real_x, real_y, real_w, real_h],
+        "scaled_slide": scaled_slide,
+        "vis_scale": vis_scale,
+    }
+
+    handle = f"{coords_path}/{slide_name+ '_' + hospital_name}_coords_checkpoint.pt" # ex : checkpoints/coords_checkpoints/93A_PB_coords_checkpoint.pt
+    torch.save(to_save, handle) # save extraction parameters
+    if verbose:
+        print(slide_name, "done!")
+
+
 def generate_patches_from_wsi(
     slide_name,
     path_to_wsi,
