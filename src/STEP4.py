@@ -88,6 +88,7 @@ def main():
         if p != 0: # si pejorative
             try:
                 # read img
+                patch = f"patch_x_{x}_patch_y_{y}.jpg"
                 im = plt.imread(f"{patches_path}{slide_name}/{patch}") # ex : data/patches/93A_PB/patch_x_33956_y_93057.jpg
                 # stain separation
                 V = vectorize(im)

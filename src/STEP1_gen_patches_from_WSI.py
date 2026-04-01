@@ -21,13 +21,19 @@ def main():
     perc_wpx = config["patching"]["perc_wpx"]
     perc_bpx = config["patching"]["perc_bpx"]
     patches_path = config["paths"]["pth_to_patches"]
-    patches_path_bis = config["paths"]["pth_to_patches_bis"]
     coords_path = config["paths"]["pth_to_coords"]
     overview_path = config["paths"]["overview_path"]
+
+    # bis
+    patches_path_bis = config["paths"]["pth_to_patches_bis"]
+    coords_path_bis = config["paths"]["pth_to_coords_bis"]
+    overview_path_bis = config["paths"]["overview_path_bis"]
+
 
     args = parse_arguments()
     verbose = args.verbose
     sn = args.slide_name # ex : data/WSIs/PB/Patient_93/93A.mrxs
+    tia_patch_size = tia_step = args.tia_patch_size
     path_to_wsis = sn.split("Patient")[0] # chemin avant la lame ex : data/WSIs/PB/
     hospital_name = sn.split(os.path.sep)[-3] # nom du dossier contenant les patients ex : PB
     slide_name = "Patient_" + sn.split("_")[-1] #Patient_ + numéro après le nom du patient ex : Patient_93/93A.mrxs
@@ -66,14 +72,14 @@ def main():
         generate_patches_from_wsi_2(
             slide_name,
             path_to_wsi=path_to_wsis,
-            patch_size=patch_size,
+            patch_size=tia_patch_size,
             mpp= mpp,
-            step=step,
+            step=tia_step,
             path_to_patches=patches_path_bis,
             vis_scale=vis_scale,
-            overview_path=overview_path,
+            overview_path=overview_path_bis,
             hospital_name=hospital_name,
-            coords_path=coords_path,
+            coords_path=coords_path_bis,
             perc_wpx=perc_wpx,
             perc_bpx=perc_bpx,
             enlarge=enlarge,

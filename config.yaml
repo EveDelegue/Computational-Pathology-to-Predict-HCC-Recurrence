@@ -32,6 +32,7 @@ paths:
   pth_to_patches_bis: "data/patches_bis/"
   pth_to_features: "data/features"
   pth_to_coords: "checkpoints/coords_checkpoints"
+  pth_to_coords_bis: "checkpoints/coords_checkpoints_bis"
   pth_to_models: "data/models"
   pth_to_tab: "data/tabs"
   pth_to_tumor_ckpts: "checkpoints/tumor_checkpoints"
@@ -41,9 +42,11 @@ paths:
   pth_to_nuc_dats: "checkpoints/nucleus_dats"
   results_path: "results"
   overview_path: "results/overview_wsis"
+  overview_path_bis: "results/overview_wsis_bis"
   pth_to_preds_wsis: "results/overview_preds_tumor_wsis"
   pth_to_inflams_wsis: "results/overview_preds_inflam_wsis"
   pth_to_maps: "results/overview_maps"
+  pth_to_maps_bis: "results/overview_maps_bis"
   pth_to_nuc_viz: "results/patch_he_nuc"
 # stain separation
 staining:
