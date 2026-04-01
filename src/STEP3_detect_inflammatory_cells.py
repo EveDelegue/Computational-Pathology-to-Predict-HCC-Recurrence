@@ -86,12 +86,14 @@ def main():
         ]
 
         # detect nucleus
-        model.run(
+        output = model.run(
             images,
             save_dir=save_dir,
             input_resolutions=[{"units": "baseline", "resolution": 1.0}],
             auto_get_mask=False,
         )
+
+
 
         # load the output data
         file_map = joblib.load(f"{save_dir}/file_map.dat") # ex : checkpoints/inflam_dats/93A_PB/file_map.dat
