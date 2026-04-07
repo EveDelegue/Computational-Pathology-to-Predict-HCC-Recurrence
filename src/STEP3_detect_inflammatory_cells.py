@@ -70,13 +70,11 @@ def main():
         # init model
         if hovernet in ["pannuke", "monusac"]:
             model = NucleusInstanceSegmentor(
-                model="hovernet_fast-" + hovernet, batch_size=batch_size, 
-                device=device, num_workers=multiprocessing.cpu_count()//2
+                model="hovernet_fast-" + hovernet, batch_size=batch_size
             )
         else:
             model = NucleusInstanceSegmentor(
-                model="hovernet_original-consep", batch_size=batch_size,
-                device=device, num_workers=multiprocessing.cpu_count()//2
+                model="hovernet_original-consep", batch_size=batch_size
             )
 
         save_dir = f"{pth_to_inflams_dats}/{slide_name}/" # ex : checkpoints/inflam_dats/93A_PB
@@ -86,21 +84,19 @@ def main():
         ]
 
         # detect nucleus
-        output = model.run(
+        model.predict(
             images,
+            mode="tile",
             save_dir=save_dir,
-            input_resolutions=[{"units": "baseline", "resolution": 1.0}],
-            auto_get_mask=False,
+            device=device,
+            crash_on_exception=True,
         )
-
-
 
         # load the output data
         file_map = joblib.load(f"{save_dir}/file_map.dat") # ex : checkpoints/inflam_dats/93A_PB/file_map.dat
         dict4 = {}  # dictionary of results: {id: centroid, contour, proba, type}
         dict_xy_nucs = {}  # dictionary {x,y): [nuc_id1, nuc_id2,...]}
         
-
         for im_dir, out_dir in tqdm(
             file_map, desc=f"Processing {save_dir}/file_map.dat", leave=False
         ):

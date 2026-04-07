@@ -224,7 +224,6 @@ def generate_patches_from_wsi_2(
             ax.axis("off")
         plt.tight_layout()
         plt.savefig(f"{overview_path}/{slide_name}_overview.png", dpi=150)
-        plt.show()
 
     to_save = {
         "coords_x": coords_x,
@@ -324,8 +323,7 @@ def generate_patches_from_wsi(
             ax.axis("off")
         plt.tight_layout()
         plt.savefig(f"{overview_path}/{slide_name}_overview.png", dpi=150)
-        plt.show()
-
+        
     to_save = {
         "coords_x": coords_x,
         "coords_y": coords_y,
@@ -337,5 +335,3 @@ def generate_patches_from_wsi(
 
     handle = f"{coords_path}/{slide_name+ '_' + hospital_name}_coords_checkpoint.pt" # ex : checkpoints/coords_checkpoints/93A_PB_coords_checkpoint.pt
     torch.save(to_save, handle) # save extraction parameters
-    if verbose:
-        print(slide_name, "done!")

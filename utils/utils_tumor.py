@@ -183,8 +183,8 @@ def gen_multiscale_patches(
         x, y = patch.shape[0] // 2, patch.shape[1] // 2
         img_1 = patch[x - res1 // 2 : x + res1 // 2, y - res1 // 2 : y + res1 // 2]
         img_2 = patch[x - res2 // 2 : x + res2 // 2, y - res2 // 2 : y + res2 // 2]
-        img_2 = (Image.fromarray(img_2)).resize((res3, res3), Image.Resampling.LANCZOS)
-        img_3 = (Image.fromarray(patch)).resize((res3, res3), Image.Resampling.LANCZOS)
+        img_2 = (Image.fromarray(img_2)).resize((res1, res1), Image.Resampling.LANCZOS)
+        img_3 = (Image.fromarray(patch)).resize((res1, res1), Image.Resampling.LANCZOS)
         X.append([Image.fromarray(img_1), img_2, img_3])
     return X, list(np.zeros(len(X)))
 
