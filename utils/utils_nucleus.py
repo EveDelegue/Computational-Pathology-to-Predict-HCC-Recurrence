@@ -3,6 +3,7 @@ import torch
 import numpy as np
 from numpy.linalg import pinv
 from skimage import filters
+import matplotlib.pyplot as plt
 
 
 def vectorize(im, N=500 * 500):
@@ -72,8 +73,8 @@ def getNucleusMask(im_He, gaussian_filter=(7, 7)):
         cv2.cvtColor(im_He, cv2.COLOR_RGB2GRAY), gaussian_filter, 0
     )
     thresholds = filters.threshold_multiotsu(blur_c1, classes=3)
-    multiotsu_mask = np.invert(255 * (blur_c1 > thresholds[1]).astype(np.uint8))
-    return multiotsu_mask
+    multiotsu_mask = np.invert(255 * (blur_c1 > thresholds[0]).astype(np.uint8))
+    return multiotsu_mask,blur_c1
 
 
 def getCleanMask(mask, kernel):
@@ -182,13 +183,21 @@ def computeFeatures(filtred_contours, final_im):
     )
 
 
-def getNucleusFeatures(im, V, W, Lambda, model, kernel, poids):
-    N, M = 512, 512
-    V = vectorize(im, N=N * M)
-    im_He = getHstain(V, W, np.maximum((pinv(W) @ V), 0), Lambda, model, poids)
-    mask = getNucleusMask(im_He, gaussian_filter=(7, 7))
+def getNucleusFeatures(im, V, W, Lambda, model, poids, kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(5,5)),verbose=False,verbose_path=''):
+    im_He = getHstain(V, W, np.maximum((pinv(W) @ V), 0), Lambda, model, poids,n=im.shape[0]) 
+    mask,blur = getNucleusMask(im_He, gaussian_filter=(7, 7))
     clean_mask = getCleanMask(mask, kernel)
     contour_im0, contours = detectContours(im, clean_mask)
-    _, filtred_contours = detectNucleus(contour_im0, contours)
+    contours_2 , filtred_contours = detectNucleus(contour_im0, contours)
     final_im = segmentNucleus(im, filtred_contours)
+    if verbose: 
+        # save intermediate images for debugging
+        plt.imsave(f"{verbose_path}/im.png", im)
+        plt.imsave(f"{verbose_path}/im_He.png", im_He)
+        plt.imsave(f"{verbose_path}/mask.png", mask, cmap='gray')
+        plt.imsave(f'{verbose_path}/blur.png',blur, cmap='gray')
+        plt.imsave(f"{verbose_path}/clean_mask.png", clean_mask, cmap='gray')
+        plt.imsave(f"{verbose_path}/contour_im0.png", contour_im0)
+        plt.imsave(f"{verbose_path}/contours_2.png", contours_2)
+        plt.imsave(f"{verbose_path}/final_im.png", final_im)
     return final_im, filtred_contours
