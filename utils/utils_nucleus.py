@@ -123,8 +123,12 @@ def detectContours(im, opened_mask):
     contours, _ = cv2.findContours(
         opened_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
     )  # Find contours in the binary image
-    contour_im = cv2.drawContours(im.copy(), contours, -1, (0, 0, 0), thickness=2)
-    return contour_im, contours
+    convex_contours = []
+    for cnt in contours:
+        convex_cnt = cv2.convexHull(cnt)
+        convex_contours.append(convex_cnt)
+    contour_im = cv2.drawContours(im.copy(), convex_contours, -1, (0, 0, 0), thickness=2)
+    return contour_im, convex_contours, contours
 
 def detectEllipsisContours(im,edges,accuracy=20, threshold=90, min_size=15, max_size=40):
     result = hough_ellipse(edges,accuracy,threshold,min_size,max_size)
