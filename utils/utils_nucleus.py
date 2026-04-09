@@ -4,7 +4,10 @@ import numpy as np
 from numpy.linalg import pinv
 from skimage import filters
 import matplotlib.pyplot as plt
-
+import os
+from skimage.transform import hough_ellipse
+from skimage.draw import ellipse_perimeter
+import skimage
 
 def vectorize(im, N=500 * 500):
     N, M, _ = im.shape
@@ -68,17 +71,19 @@ def getHstain(V, W, H0, Lambda, model, poids, n=512):
     return (255 * im_H).astype(np.uint8)
 
 
-def getNucleusMask(im_He, gaussian_filter=(7, 7)):
-    blur_c1 = cv2.GaussianBlur(
-        cv2.cvtColor(im_He, cv2.COLOR_RGB2GRAY), gaussian_filter, 0
-    )
+def getNucleusMask(im_He):
+    #blur_c1 = cv2.GaussianBlur(
+    #    cv2.cvtColor(im_He, cv2.COLOR_RGB2GRAY), gaussian_filter, 0
+    #)
+    blur_c1 = cv2.cvtColor(im_He, cv2.COLOR_RGB2GRAY)
     thresholds = filters.threshold_multiotsu(blur_c1, classes=3)
     multiotsu_mask = np.invert(255 * (blur_c1 > thresholds[0]).astype(np.uint8))
-    return multiotsu_mask,blur_c1
+    return multiotsu_mask
 
 
 def getCleanMask(mask, kernel):
-    opened_mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
+    closed_mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+    opened_mask = cv2.morphologyEx(closed_mask, cv2.MORPH_OPEN, kernel)
     return opened_mask
 
 def get_contours(
@@ -121,8 +126,25 @@ def detectContours(im, opened_mask):
     contour_im = cv2.drawContours(im.copy(), contours, -1, (0, 0, 0), thickness=2)
     return contour_im, contours
 
+def detectEllipsisContours(im,edges,accuracy=20, threshold=90, min_size=15, max_size=40):
+    result = hough_ellipse(edges,accuracy,threshold,min_size,max_size)
+    # Estimated parameters for the ellipse
+    contours = []
+    im_contours = im.copy()
+    for elipsis in result:
+        acc,yc, xc, a, b = [int(round(x)) for x in list(elipsis)[:5]]
+        if acc> threshold and a>0 and b>0:
+            orientation = elipsis[5]
+            # Draw the ellipse on the original image
+            cy, cx = ellipse_perimeter(yc, xc, a, b, orientation)
+            contours.append(np.stack([[cx],[cy]]).T)
+            im_contours[cy,cx] = (0,250,0)
+    return im_contours, contours
+    
+    
+    
 
-def detectNucleus(contour_im, contours, inf_p=35, inf_a=35):
+def detectNucleus(contour_im, contours,inf_p=35,inf_a=35): #inf_p=35, inf_a=35):
     perimeters, areas = [], []
     filtred_contours = []
     for contour in contours:
@@ -183,21 +205,76 @@ def computeFeatures(filtred_contours, final_im):
     )
 
 
-def getNucleusFeatures(im, V, W, Lambda, model, poids, kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(5,5)),verbose=False,verbose_path=''):
+def getNucleusFeatures(im, W, Lambda, model, poids, kernel_size = 5,verbose=False,verbose_path='',mpp=0.25,ref_mpp=0.25):
+    '''Extract nucleus contours from a patch.
+    im : a plt.imread image
+    W : -np.log(np.array([hemato_1, eosin, safran, hemato_2]).T / 255) an array containing the staining reference
+    model, Lambda, poids : pga model and its parameters
+    kernel_size : int, diameter of the morphological structuring element
+    mpp : patch resolution
+    ref_mpp : ref center (usually PB) patch resolution
+    verbose : if True save intermediate images
+    verbose_path : path to save these images'''
+
+    scaled_kernel_size = 2 * int((kernel_size*ref_mpp/mpp)/2) + 1 # must be odd and the closest to kernel_size*ref_mpp/mpp
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(scaled_kernel_size,scaled_kernel_size))
+    
+    V  = vectorize(im)
     im_He = getHstain(V, W, np.maximum((pinv(W) @ V), 0), Lambda, model, poids,n=im.shape[0]) 
-    mask,blur = getNucleusMask(im_He, gaussian_filter=(7, 7))
+    mask = getNucleusMask(im_He)
     clean_mask = getCleanMask(mask, kernel)
     contour_im0, contours = detectContours(im, clean_mask)
     contours_2 , filtred_contours = detectNucleus(contour_im0, contours)
     final_im = segmentNucleus(im, filtred_contours)
     if verbose: 
         # save intermediate images for debugging
+        os.makedirs(verbose_path,exist_ok=True)
         plt.imsave(f"{verbose_path}/im.png", im)
         plt.imsave(f"{verbose_path}/im_He.png", im_He)
         plt.imsave(f"{verbose_path}/mask.png", mask, cmap='gray')
-        plt.imsave(f'{verbose_path}/blur.png',blur, cmap='gray')
         plt.imsave(f"{verbose_path}/clean_mask.png", clean_mask, cmap='gray')
         plt.imsave(f"{verbose_path}/contour_im0.png", contour_im0)
         plt.imsave(f"{verbose_path}/contours_2.png", contours_2)
         plt.imsave(f"{verbose_path}/final_im.png", final_im)
     return final_im, filtred_contours
+
+def getEdges(im_He,g_kernel_size):
+    #grayscale = cv2.cvtColor(im_He, cv2.COLOR_RGB2GRAY)
+    canny = skimage.feature.canny(im_He,sigma=g_kernel_size)
+    return canny
+
+def getNucleusFeatures_2(im,  W, Lambda, model, poids, g_kernel_size = 7, verbose=False,verbose_path='',mpp=0.25,ref_mpp=0.25,threshold=90, min_size=15, max_size=40,kernel_size=7):
+    '''Extract nucleus contours from a patch.
+    im : a plt.imread image
+    W : -np.log(np.array([hemato_1, eosin, safran, hemato_2]).T / 255) an array containing the staining reference
+    model, Lambda, poids : pga model and its parameters
+    mpp : patch resolution
+    ref_mpp : ref center (usually PB) patch resolution
+    verbose : if True save intermediate images
+    verbose_path : path to save these images
+    g_kernel_size : level of blurring for denoising'''
+    # scale hyper-parameters
+    g_ker_size_scaled = (g_kernel_size*ref_mpp/mpp)
+    threshold_scaled = int(threshold*ref_mpp/mpp)
+    min_size_scaled = int(min_size*ref_mpp/mpp)
+    max_size_scaled = int(max_size*ref_mpp/mpp)
+    scaled_kernel_size = 2 * int((kernel_size*ref_mpp/mpp)/2) + 1 # must be odd and the closest to kernel_size*ref_mpp/mpp
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(scaled_kernel_size,scaled_kernel_size))
+    # extract hemalun staining
+    V  = vectorize(im)
+    im_He = getHstain(V, W, np.maximum((pinv(W) @ V), 0), Lambda, model, poids,n=im.shape[0]) 
+    mask = getNucleusMask(im_He)
+    clean_mask = getCleanMask(mask, kernel)
+    # extract edges
+    edges = getEdges(clean_mask,g_ker_size_scaled)
+    contour_im0, contours = detectEllipsisContours(im, edges,threshold=threshold_scaled, min_size=min_size_scaled, max_size=max_size_scaled)
+    final_im = segmentNucleus(im, contours)
+    if verbose: 
+        # save intermediate images for debugging
+        os.makedirs(verbose_path,exist_ok=True)
+        plt.imsave(f"{verbose_path}/im.png", im)
+        plt.imsave(f"{verbose_path}/im_He.png", im_He)
+        plt.imsave(f"{verbose_path}/edges.png", edges)
+        plt.imsave(f"{verbose_path}/contour_im0.png", contour_im0)
+        plt.imsave(f"{verbose_path}/final_im.png", final_im)
+    return final_im, contours

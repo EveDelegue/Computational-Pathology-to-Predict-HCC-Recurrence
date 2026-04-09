@@ -12,6 +12,7 @@ patching:
   perc_wpx: 0.7
   perc_bpx: 0.05
   enlarge: 5
+  ref_hospital: 'PB'
 
 # Visualization parameters
 visualization:
@@ -26,6 +27,9 @@ visualization:
 model:
   batch_size: 32
   path_triple_resnets: "models"
+
+nucleus_model:
+  kernel_size: 7
 
 paths:
   pth_to_patches: "data/patches/"
