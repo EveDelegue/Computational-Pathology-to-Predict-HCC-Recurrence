@@ -8,6 +8,10 @@ import os
 from skimage.transform import hough_ellipse
 from skimage.draw import ellipse_perimeter
 import skimage
+from skimage.segmentation import watershed
+
+from skimage.feature import peak_local_max
+from scipy import ndimage
 
 def vectorize(im, N=500 * 500):
     N, M, _ = im.shape
@@ -71,19 +75,19 @@ def getHstain(V, W, H0, Lambda, model, poids, n=512):
     return (255 * im_H).astype(np.uint8)
 
 
-def getNucleusMask(im_He):
-    #blur_c1 = cv2.GaussianBlur(
-    #    cv2.cvtColor(im_He, cv2.COLOR_RGB2GRAY), gaussian_filter, 0
-    #)
-    blur_c1 = cv2.cvtColor(im_He, cv2.COLOR_RGB2GRAY)
+def getNucleusMask(im_He,gaussian_filter=(31,31)):
+    blur_c1 = cv2.GaussianBlur(
+        cv2.cvtColor(im_He, cv2.COLOR_RGB2GRAY), gaussian_filter, 0
+    )
+    #blur_c1 = cv2.cvtColor(im_He, cv2.COLOR_RGB2GRAY)
     thresholds = filters.threshold_multiotsu(blur_c1, classes=3)
     multiotsu_mask = np.invert(255 * (blur_c1 > thresholds[0]).astype(np.uint8))
     return multiotsu_mask
 
 
-def getCleanMask(mask, kernel):
-    closed_mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-    opened_mask = cv2.morphologyEx(closed_mask, cv2.MORPH_OPEN, kernel)
+def getCleanMask(mask, scaled_kernel_size):
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(scaled_kernel_size,scaled_kernel_size))
+    opened_mask = cv2.morphologyEx(mask,cv2.MORPH_OPEN, kernel)
     return opened_mask
 
 def get_contours(
@@ -123,12 +127,12 @@ def detectContours(im, opened_mask):
     contours, _ = cv2.findContours(
         opened_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
     )  # Find contours in the binary image
-    convex_contours = []
-    for cnt in contours:
-        convex_cnt = cv2.convexHull(cnt)
-        convex_contours.append(convex_cnt)
+    convex_contours = contours#[]
+    #for cnt in contours:
+    #    convex_cnt = cv2.convexHull(cnt)
+    #    convex_contours.append(convex_cnt)
     contour_im = cv2.drawContours(im.copy(), convex_contours, -1, (0, 0, 0), thickness=2)
-    return contour_im, convex_contours, contours
+    return contour_im, convex_contours
 
 def detectEllipsisContours(im,edges,accuracy=20, threshold=90, min_size=15, max_size=40):
     result = hough_ellipse(edges,accuracy,threshold,min_size,max_size)
@@ -156,7 +160,9 @@ def detectNucleus(contour_im, contours,inf_p=35,inf_a=35): #inf_p=35, inf_a=35):
         perimeters.append(p)
         areas.append(a)
         if p > inf_p and a > inf_a:
-            filtred_contours.append(contour)
+            r = p/(2*np.pi)
+            if np.pi*(r**2)<2*a:  
+                filtred_contours.append(contour)
     # Draw the detected contours on the mask
     contour_im0 = cv2.drawContours(
         contour_im.copy(), filtred_contours, -1, (0, 255, 0), thickness=2
@@ -208,6 +214,94 @@ def computeFeatures(filtred_contours, final_im):
         nucleocyto_idx,
     )
 
+def computeFeaturesArea(areas, final_im,density):
+    mean_area = np.mean(areas)
+    median_area = np.median(areas)
+    anisocaryose = np.std(areas)
+    median_variance_area = np.median([np.abs(area - median_area) for area in areas])
+    if np.sum(np.all(final_im == (199, 21, 133), axis=-1)) == 0:
+        nucleocyto_idx = 0
+    else:
+        blue = np.sum(np.all(final_im == (0, 0, 128), axis=-1))
+        pink = np.sum(np.all(final_im == (199, 21, 133), axis=-1)) + 1e-9
+        nucleocyto_idx = blue / pink
+    return (
+        density,
+        mean_area,
+        median_area,
+        anisocaryose,
+        median_variance_area,
+        nucleocyto_idx,
+    )
+
+def getWatershed(clean_mask:np.ndarray,footprint:int=10)->np.ndarray:
+    """Performs watershed to separate neighborhoods of nuclei
+    
+    :param clean_mask: input mask
+    :type clean_mask: np.ndarray
+    :param footprint: min distance between two nuclei center
+    :type footprint: int"""
+    # ensure type is uint8
+    image = clean_mask.astype(np.uint8)
+    # compute distance transform
+    distance= cv2.distanceTransform(image,cv2.DIST_L2, 3)
+    # find max of the local max of the distance transform
+    max_coords = peak_local_max(distance, labels=image,
+                                footprint=np.ones((footprint, footprint)))
+    # put it in a map
+    local_maxima = np.zeros_like(image, dtype=bool)
+    local_maxima[tuple(max_coords.T)] = True
+    # label it
+    markers = ndimage.label(local_maxima)[0]
+
+    # apply watershed
+    output = watershed(-distance, markers, mask=image)
+    return output
+
+def getAreas(im:np.ndarray,watershed_im: np.ndarray,min_area:int = 35,lw:int=200,
+    uw:int=255)->tuple[list,np.ndarray,int]:
+    """Compute nucleas areas, pink and blue image, and number of nucleus.
+    
+    :param im: HES input image
+    :type im: np.ndarray
+    :param watershed_im: watershed nucleus separation of the input image
+    :type watershed_im: np.ndarray
+    :param min_area: minimum area accepted for a nucleus
+    :type min_area: int
+    :param lw: lower bound of the background intensity
+    :type lw: int
+    :param uw: upper bound of the background intensity
+    :type uw: int"""
+
+    lw_rgb=np.array([lw,lw, lw], dtype=np.uint8)
+    uw_rgb=np.array([uw,uw, uw], dtype=np.uint8)
+    # Create a mask to identify white pixels within the specified range
+    white_mask = cv2.inRange(im, lowerb=lw_rgb, upperb=uw_rgb)
+    # create the final image
+    final_im = im.copy()
+    # background is white
+    final_im[white_mask > 0] = [255, 255, 255]
+
+    # list all nuclei
+    areas = []
+    for nucleus_id in range(1,watershed_im.max()+1):
+        area = np.sum(watershed_im==nucleus_id)
+        # filter the small ones
+        if area>min_area:
+            areas.append(area)
+            # nuclei is blue
+            final_im[watershed_im==nucleus_id] = (0, 0, 128)
+
+    combined_mask = np.logical_or(
+        np.all(final_im == (255, 255, 255), axis=-1),
+        np.all(final_im == (0, 0, 128), axis=-1),
+    )
+    # the rest is pink
+    final_im[~combined_mask] = (199, 21, 133)
+
+    # number of nuclei for each patch
+    density = len(areas)
+    return areas,final_im,density
 
 def getNucleusFeatures(im, W, Lambda, model, poids, kernel_size = 5,verbose=False,verbose_path='',mpp=0.25,ref_mpp=0.25):
     '''Extract nucleus contours from a patch.
@@ -221,12 +315,11 @@ def getNucleusFeatures(im, W, Lambda, model, poids, kernel_size = 5,verbose=Fals
     verbose_path : path to save these images'''
 
     scaled_kernel_size = 2 * int((kernel_size*ref_mpp/mpp)/2) + 1 # must be odd and the closest to kernel_size*ref_mpp/mpp
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(scaled_kernel_size,scaled_kernel_size))
-    
+
     V  = vectorize(im)
     im_He = getHstain(V, W, np.maximum((pinv(W) @ V), 0), Lambda, model, poids,n=im.shape[0]) 
     mask = getNucleusMask(im_He)
-    clean_mask = getCleanMask(mask, kernel)
+    clean_mask = getCleanMask(mask, scaled_kernel_size)
     contour_im0, contours = detectContours(im, clean_mask)
     contours_2 , filtred_contours = detectNucleus(contour_im0, contours)
     final_im = segmentNucleus(im, filtred_contours)
@@ -241,6 +334,39 @@ def getNucleusFeatures(im, W, Lambda, model, poids, kernel_size = 5,verbose=Fals
         plt.imsave(f"{verbose_path}/contours_2.png", contours_2)
         plt.imsave(f"{verbose_path}/final_im.png", final_im)
     return final_im, filtred_contours
+
+def getNucleusFeaturesArea(im, W, Lambda, model, poids, kernel_size = 5,verbose=False,verbose_path='',mpp=0.25,ref_mpp=0.25,footprint=10,min_area=100):
+    '''Extract nucleus contours from a patch.
+    im : a plt.imread image
+    W : -np.log(np.array([hemato_1, eosin, safran, hemato_2]).T / 255) an array containing the staining reference
+    model, Lambda, poids : pga model and its parameters
+    kernel_size : int, diameter of the morphological structuring element
+    mpp : patch resolution
+    ref_mpp : ref center (usually PB) patch resolution
+    verbose : if True save intermediate images
+    verbose_path : path to save these images'''
+
+    scaled_kernel_size = 2 * int((kernel_size*ref_mpp/mpp)/2) + 1 # must be odd and the closest to kernel_size*ref_mpp/mpp
+
+    V  = vectorize(im)
+    im_He = getHstain(V, W, np.maximum((pinv(W) @ V), 0), Lambda, model, poids,n=im.shape[0]) 
+    mask = getNucleusMask(im_He)
+    clean_mask = getCleanMask(mask, scaled_kernel_size)
+    watershed_image = getWatershed(clean_mask,footprint)
+    areas,final_im,density = getAreas(im,watershed_image,min_area)
+    if verbose: 
+        # save intermediate images for debugging
+        os.makedirs(verbose_path,exist_ok=True)
+        plt.imsave(f"{verbose_path}/im.png", im)
+        plt.imsave(f"{verbose_path}/im_He.png", im_He)
+        plt.imsave(f"{verbose_path}/mask.png", mask, cmap='gray')
+        plt.imsave(f"{verbose_path}/clean_mask.png", clean_mask, cmap='gray')
+        plt.imsave(f"{verbose_path}/watershed.png", watershed_image, cmap='gist_ncar')
+        water_on_im = im.copy()
+        water_on_im[final_im==(0,0,128)]=final_im[final_im==(0,0,128)]
+        plt.imsave(f"{verbose_path}/watershed_viz.png", water_on_im)
+        plt.imsave(f"{verbose_path}/final_im.png", final_im)
+    return areas,final_im,density
 
 def getEdges(im_He,g_kernel_size):
     #grayscale = cv2.cvtColor(im_He, cv2.COLOR_RGB2GRAY)
