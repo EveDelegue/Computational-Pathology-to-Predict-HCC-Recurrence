@@ -32,8 +32,8 @@ nucleus_model:
   kernel_size: 7
 
 paths:
-  pth_to_patches: "data/patches/"
-  pth_to_patches_bis: "data/patches_bis/"
+  pth_to_patches: "data/patches"
+  pth_to_patches_bis: "data/patches_bis"
   pth_to_features: "data/features"
   pth_to_coords: "checkpoints/coords_checkpoints"
   pth_to_coords_bis: "checkpoints/coords_checkpoints_bis"
