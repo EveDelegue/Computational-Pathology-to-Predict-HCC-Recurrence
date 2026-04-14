@@ -12,6 +12,8 @@ from utils.utils_tumor import (
     gen_image_from_coords_bis,
 )
 
+
+
 def main():
     # read hyperparameters
     with open("config.yaml", "r") as f:
@@ -75,6 +77,7 @@ def main():
 
         [x_start, y_start, _, _] = chkpt_coords["xy_start_end"]
         
+        ###### ATTENTION ! PROBLEMES ! ######
         df_map = pd.DataFrame(
             columns=["x", "y", "tumor", "inflams"], index=range(len(df_tumor))
         )
@@ -85,6 +88,8 @@ def main():
             ].values[0]
             df_map.iloc[j] = pd.Series([x, y, p, ii], index=df_map.columns)
 
+        ###### fin des problèmes ######
+
         df_map["xx"] = df_map["x"] * vis_scale - x_start
         df_map["yy"] = df_map["y"] * vis_scale - y_start
 
@@ -92,9 +97,12 @@ def main():
         coords_y = df_map["yy"].values
         preds = df_map["tumor"].values
 
+        # init black image
         image_bin = np.zeros(
             (int(coords_y.max()) + 2 * step, int(coords_x.max()) + 2 * step), dtype=np.uint8
         )
+
+        # make white pixels where tumor
         set_p = set()
         for x, y, p in zip(coords_x, coords_y, preds):
             set_p.add(p)
@@ -155,20 +163,25 @@ def main():
             value=[0],
         )
 
+        # fill in the holes 
+        # TODO: adapt kernel depending on the mpp
         kernel = cv2.getStructuringElement(
             cv2.MORPH_RECT, (19, 19)
         )  # 5x5 rectangular kernel
         closed_image = cv2.morphologyEx(image_bin, cv2.MORPH_CLOSE, kernel)
 
+        # remove small objects
         kernel = cv2.getStructuringElement(
             cv2.MORPH_RECT, (35, 35)
         )  # 5x5 rectangular kernel
         opened_image = cv2.morphologyEx(closed_image, cv2.MORPH_OPEN, kernel)
 
+        # take external border 
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (55, 55))
         dilated_image = cv2.dilate(opened_image, kernel, iterations=1)
         out_tumor = dilated_image - opened_image
 
+        # take internal border
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (55, 55))
         eroded_image = cv2.erode(opened_image, kernel, iterations=1)
         in_tumor = opened_image - eroded_image
@@ -181,6 +194,7 @@ def main():
         eroded_image_color = np.stack(
             [np.zeros_like(in_tumor), in_tumor, np.zeros_like(in_tumor)], axis=2
         )  # green channel (0, 255, 0)
+
         dilated_image_color = np.stack(
             [np.zeros_like(out_tumor), np.zeros_like(out_tumor), out_tumor], axis=2
         )  # blue channel (0, 0, 255)
@@ -188,12 +202,15 @@ def main():
         colored_in_tumor = np.clip(image_bin_color + eroded_image_color, 0, 255).astype(
             np.uint8
         )
+        
         colored_out_tumor = np.clip(image_bin_color + dilated_image_color, 0, 255).astype(
             np.uint8
         )
+        
         eroded_image_color = np.stack(
             [in_tumor, in_tumor, np.zeros_like(in_tumor)], axis=2
         )  # green channel (0, 255, 0)
+        
         colored_in_out = np.clip(eroded_image_color + dilated_image_color, 0, 255).astype(
             np.uint8
         )
@@ -216,22 +233,27 @@ def main():
             mask=inout_tumor_mask,
         )
 
+        # compute number of inflams in tumor
         idx_X, idx_Y = np.nonzero(final_inflam_tumor_image)
         INFLAM_IN_ALL_T = final_inflam_tumor_image.sum() / len(idx_X)
         # print("inflam cells inside all tumor (mean per patch)", INFLAM_IN_ALL_T)
 
+        # compute number of inflams inout tumor
         idx_X, idx_Y = np.nonzero(final_inout_tumor_image)
         INFLAM_INOUT_T = final_inout_tumor_image.sum() / len(idx_X)
         # print("inflam cells surrounding tumor (in & out) (mean per patch)", INFLAM_INOUT_T)
 
+        # add to the table
         df.loc[df["lame"] == slide_name] = [slide_name, INFLAM_INOUT_T, INFLAM_IN_ALL_T]
 
         df["patient"] = df["lame"].apply(lambda x: x[:-1]).astype(int)
 
-        df_inflams = pd.DataFrame(
+    df_inflams = pd.DataFrame(
         index=df["patient"].unique(),
         columns=["patient", "peri-tumoral", "intra-tumoral"],
     )
+    
+    # compute mean
     df_inflams["patient"] = df["patient"].unique()
     for patient in df["patient"].unique():
         df_inflams.loc[df_inflams["patient"] == patient] = [patient] + list(

@@ -41,7 +41,7 @@ def process_patch(args):
 def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--slide_name", type=str,default='data/patches/42F_PB')
-    parser.add_argument("--verbose",type=bool,default=False)
+    parser.add_argument("--verbose",type=bool,default=True)
     args = parser.parse_args()
     return args
 
@@ -131,7 +131,7 @@ def main():
             Lambda,
             poids,
             kernel_size,
-            verbose,
+            verbose and (j%1000 == 0),
             path_to_verbose,
             mpp,
             ref_mpp,

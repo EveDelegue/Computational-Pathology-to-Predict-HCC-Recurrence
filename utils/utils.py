@@ -182,10 +182,12 @@ def generate_patches_from_wsi_2(
         y_start : y_end + height, x_start : x_end + width
     ] # slide with only the zone containing tissue
 
+    real_step = int(step*0.25/mpp) # to ensure mpp = 0.25
+
     slide_name = slide_name.split("/")[-1].split(".")[0] # ex : 93A
     coords_x, coords_y = [], []
-    range_x = range(real_x, real_x + real_w, step)
-    range_y = range(real_y, real_y + real_h, step)
+    range_x = range(real_x, real_x + real_w, real_step)
+    range_y = range(real_y, real_y + real_h, real_step)
     pth1 = path_to_patches + slide_name + '_' + hospital_name # ex : data/patches/93A_PB
     os.makedirs(pth1,exist_ok=True)
 
