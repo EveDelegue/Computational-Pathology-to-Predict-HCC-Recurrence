@@ -258,8 +258,8 @@ def getWatershed(clean_mask:np.ndarray,footprint:int=10)->np.ndarray:
     output = watershed(-distance, markers, mask=image)
     return output
 
-def getAreas(im:np.ndarray,watershed_im: np.ndarray,min_area:int = 35,lw:int=200,
-    uw:int=255)->tuple[list,np.ndarray,int]:
+def getAreas(im:np.ndarray,watershed_im: np.ndarray,min_area:float = 35,lw:int=200,
+    uw:int=255,ratio:float=1)->tuple[list,np.ndarray,int]:
     """Compute nucleas areas, pink and blue image, and number of nucleus.
     
     :param im: HES input image
@@ -267,11 +267,13 @@ def getAreas(im:np.ndarray,watershed_im: np.ndarray,min_area:int = 35,lw:int=200
     :param watershed_im: watershed nucleus separation of the input image
     :type watershed_im: np.ndarray
     :param min_area: minimum area accepted for a nucleus
-    :type min_area: int
+    :type min_area: float
     :param lw: lower bound of the background intensity
     :type lw: int
     :param uw: upper bound of the background intensity
-    :type uw: int"""
+    :type uw: int
+    :param ratio: Surface of the ref pixel compared to actual pixel (surface PB = 1). Usually ratio = (ref_mpp/mpp)**2
+    :type ratio: float"""
 
     lw_rgb=np.array([lw,lw, lw], dtype=np.uint8)
     uw_rgb=np.array([uw,uw, uw], dtype=np.uint8)
@@ -285,7 +287,7 @@ def getAreas(im:np.ndarray,watershed_im: np.ndarray,min_area:int = 35,lw:int=200
     # list all nuclei
     areas = []
     for nucleus_id in range(1,watershed_im.max()+1):
-        area = np.sum(watershed_im==nucleus_id)
+        area = np.sum(watershed_im==nucleus_id)/ratio
         # filter the small ones
         if area>min_area:
             areas.append(area)
@@ -335,7 +337,8 @@ def getNucleusFeatures(im, W, Lambda, model, poids, kernel_size = 5,verbose=Fals
         plt.imsave(f"{verbose_path}/final_im.png", final_im)
     return final_im, filtred_contours
 
-def getNucleusFeaturesArea(im, W, Lambda, model, poids, kernel_size = 5,verbose=False,verbose_path='',mpp=0.25,ref_mpp=0.25,footprint=10,min_area=100):
+def getNucleusFeaturesArea(im, W, Lambda, model, poids, kernel_size = 5,verbose=False,verbose_path='',mpp=0.25,ref_mpp=0.25,
+                           footprint=10,min_area=100,gauss_kernel=31):
     '''Extract nucleus contours from a patch.
     im : a plt.imread image
     W : -np.log(np.array([hemato_1, eosin, safran, hemato_2]).T / 255) an array containing the staining reference
@@ -346,14 +349,17 @@ def getNucleusFeaturesArea(im, W, Lambda, model, poids, kernel_size = 5,verbose=
     verbose : if True save intermediate images
     verbose_path : path to save these images'''
 
+    # scale the sizes to fit different mmps
     scaled_kernel_size = 2 * int((kernel_size*ref_mpp/mpp)/2) + 1 # must be odd and the closest to kernel_size*ref_mpp/mpp
+    scaled_footprint = 2 * int((footprint*ref_mpp/mpp)/2) + 1 # must be odd and the closest to footprint*ref_mpp/mpp
+    scaled_gauss = 2 * int((gauss_kernel*ref_mpp/mpp)/2) + 1 # must be odd and the closest to gauss_kernel*ref_mpp/mpp
 
     V  = vectorize(im)
     im_He = getHstain(V, W, np.maximum((pinv(W) @ V), 0), Lambda, model, poids,n=im.shape[0]) 
-    mask = getNucleusMask(im_He)
+    mask = getNucleusMask(im_He,gaussian_filter=(scaled_gauss,scaled_gauss))
     clean_mask = getCleanMask(mask, scaled_kernel_size)
-    watershed_image = getWatershed(clean_mask,footprint)
-    areas,final_im,density = getAreas(im,watershed_image,min_area)
+    watershed_image = getWatershed(clean_mask,scaled_footprint)
+    areas,final_im,density = getAreas(im,watershed_image,min_area,ratio=(ref_mpp/mpp)**2)
     if verbose: 
         # save intermediate images for debugging
         os.makedirs(verbose_path,exist_ok=True)

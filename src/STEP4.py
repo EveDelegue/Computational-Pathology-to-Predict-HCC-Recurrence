@@ -18,23 +18,9 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 def process_patch(args):
     """Process a single patch for parallel execution.
     :param args: contains all the required arguments"""
-    (
-        j,
-        coords_x,
-        coords_y,
-        y_harmonic,
-        patches_path,
-        slide_name,
-        Wgt,
-        Lambda,
-        poids,
-        kernel_size,
-        verbose,
-        path_to_verbose,
-        mpp,
-        ref_mpp,
-        device
-    ) = args
+    (j,coords_x,coords_y,y_harmonic,patches_path,slide_name,Wgt,Lambda,
+        poids,kernel_size,verbose,path_to_verbose,mpp,ref_mpp,device ) = args
+    
     x, y, p = coords_x[j], coords_y[j], y_harmonic[j]
     if p != 0:  # si tumorale
         # read img
@@ -43,18 +29,8 @@ def process_patch(args):
         # initialize GPU/CPU object in worker process
         pga = PGA(Wgt, device=device)
         # stain separation and nuclei detection
-        areas, final_im, density = getNucleusFeaturesArea(
-            im,
-            Wgt,
-            Lambda,
-            pga,
-            poids,
-            kernel_size,
-            verbose,
-            path_to_verbose + '/' + str(j) + '_' + str(slide_name),
-            mpp,
-            ref_mpp,
-        )
+        areas, final_im, density = getNucleusFeaturesArea(im,Wgt,Lambda,pga,poids,kernel_size,verbose,
+            path_to_verbose + '/' + str(j) + '_' + str(slide_name),mpp,ref_mpp)
         # features for prediction
         density, mean_area, median_area, aniso, _, nucyto_idx = computeFeaturesArea(areas, final_im, density)
         return int(x), int(y), density, mean_area, median_area, aniso, nucyto_idx
@@ -64,7 +40,7 @@ def process_patch(args):
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--slide_name", type=str,default='data/patches/66A_PB')
+    parser.add_argument("--slide_name", type=str,default='data/patches/42F_PB')
     parser.add_argument("--verbose",type=bool,default=False)
     args = parser.parse_args()
     return args
@@ -127,23 +103,16 @@ def main():
     y_har_preds = chkpt_tumor["har_mean_preds"]
     y_harmonic = y_har_preds.numpy()
     
-    all_x, all_y, median_areas, mean_areas, nucleocytos, densities, anisos, median_vars = (
+    all_x, all_y, median_areas, mean_areas, nucleocytos, densities, anisos = (
         [],
         [],
         [],
         [],
         [],
         [],
-        [],
-        [],
+        []
     )
 
-
-
-    # stain separation v2 using parallelization
-    
-    
-    
     t0 = time.time()
     # stain separation v2 using parallelization
     ctx = multiprocessing.get_context("spawn")
@@ -166,13 +135,15 @@ def main():
             path_to_verbose,
             mpp,
             ref_mpp,
-            device,
+            device
         )
-        for j in range(200)
+        for j in range(len(y_har_preds))
     ]
-
+    # run the multiprocess 
     out1 = pool.map(process_patch, patch_args)
+    # close the multiprocessing pool
     pool.close()
+    # wait for it to be closed
     pool.join()
     
     # Process results
@@ -186,43 +157,8 @@ def main():
             median_areas.append(median_area)
             anisos.append(aniso)
             nucleocytos.append(nucyto_idx)
-    
     t1 = time.time()
-    print(f'time v2 : {t1-t0}')
-
-    # stain separation v1
-    all_x_2, all_y_2, median_areas_2, mean_areas_2, nucleocytos_2, densities_2, anisos_2, median_vars = (
-        [],
-        [],
-        [],
-        [],
-        [],
-        [],
-        [],
-        [],
-    )
-    t0 = time.time()
-    sub_verbose = verbose
-    for j in tqdm(range(200), desc="load images and detect nuclei features"):#len(y_har_preds)), desc="load images and gen Hematoxylin"):
-        x, y, p = coords_x[j], coords_y[j], y_harmonic[j]
-        if p != 0: # si tumorale
-            # read img
-            patch = f"patch_x_{x}_y_{y}.jpg"
-            im = plt.imread(f"{patches_path}/{slide_name}/{patch}") # ex : data/patches/93A_PB/patch_x_33956_y_93057.jpg
-            # stain separation and nuclei detection
-            areas,final_im,density = getNucleusFeaturesArea(im, Wgt, Lambda, pga,  poids, kernel_size, sub_verbose,path_to_verbose+'/'+str(j)+'_'+str(slide_name),mpp,ref_mpp) # create a 3 colors image, white, pink, blue
-            density, mean_area, median_area, aniso, _, nucyto_idx = computeFeaturesArea(areas, final_im,density)
-            #sub_verbose = False
-            
-            all_x_2.append(int(x))
-            all_y_2.append(int(y))
-            densities_2.append(density)
-            mean_areas_2.append(mean_area)
-            median_areas_2.append(median_area)
-            anisos_2.append(aniso)
-            nucleocytos_2.append(nucyto_idx)
-    t1 = time.time()
-    print(f'time v1 : {t1-t0}')
+    print(f'time processing : {t1-t0}')
 
     [x_start, y_start, _, _] = chkpt_coords["xy_start_end"]
     coords_x = np.array(coords_x) * vis_scale - x_start
@@ -242,7 +178,6 @@ def main():
     df_features.to_csv(
         f"{save_dir}/{slide_name}_nucleus_features.csv", index=False
     )
-
 
 if __name__ == "__main__":
     main()
