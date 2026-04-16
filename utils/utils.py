@@ -188,7 +188,7 @@ def generate_patches_from_wsi_2(
     coords_x, coords_y = [], []
     range_x = range(real_x, real_x + real_w, real_step)
     range_y = range(real_y, real_y + real_h, real_step)
-    pth1 = path_to_patches + slide_name + '_' + hospital_name # ex : data/patches/93A_PB
+    pth1 = os.path.join(path_to_patches, slide_name + '_' + hospital_name) # ex : data/patches/93A_PB
     os.makedirs(pth1,exist_ok=True)
 
 
@@ -290,7 +290,7 @@ def generate_patches_from_wsi(
     coords_x, coords_y = [], []
     range_x = range(real_x, real_x + real_w, step)
     range_y = range(real_y, real_y + real_h, step)
-    pth1 = path_to_patches + slide_name + '_' + hospital_name # ex : data/patches/93A_PB
+    pth1 = os.path.join(path_to_patches, slide_name + '_' + hospital_name) # ex : data/patches/93A_PB
     os.makedirs(pth1,exist_ok=True)
 
     with tqdm(total=len(range_x) * len(range_y), desc="Patch extraction") as pbar: # create a progress bar
