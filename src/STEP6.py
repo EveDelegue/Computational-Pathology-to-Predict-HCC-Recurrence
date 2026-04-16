@@ -5,19 +5,29 @@ import yaml
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from  PIL import Image
 from matplotlib.colors import Normalize
 import matplotlib.cm as cm
+import argparse
 from utils.utils_tumor import (
     gen_image_from_coords,
     gen_image_from_coords_bis,
 )
 
-
+def parse_arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--verbose",type=bool,default=True)
+    args = parser.parse_args()
+    return args
 
 def main():
     # read hyperparameters
     with open("config.yaml", "r") as f:
         config = yaml.safe_load(f)
+
+    # parse arguments
+    args = parse_arguments()
+    verbose = args.verbose
 
     patch_size = config["patching"]["patch_size_dict"]["PB"]
     colors = {
@@ -32,12 +42,15 @@ def main():
     }
 
     vis_scale = config["patching"]["vis_scale"]
+
+    # TODO : adapt the step for inflammation 
     step = int(vis_scale * patch_size)
     padding = 2 * step
 
     tumor_checkpoints =  config["paths"]["pth_to_tumor_ckpts"]
     coords_checkpoints =  config["paths"]["pth_to_coords"]
     inflams_checkpoints =  config["paths"]["pth_to_inflams_ckpts"]
+    inflams_verbose = config["paths"]["pth_to_inflams_wsis"]
 
 
     # create a dataframe
@@ -54,13 +67,15 @@ def main():
         slide_name = slide.split("_")[0]
         hospital = slide.split("_")[1]
         # load the tumoral predictions
-        chkpt_coords = torch.load(f"{coords_checkpoints}/{slide_name}_{hospital}_coords_checkpoint.pt")
+        chkpt_coords = torch.load(f"{coords_checkpoints}/{slide_name}_{hospital}_coords_checkpoint.pt",weights_only=False)
         chkpt_tumor = torch.load(
-            f"{tumor_checkpoints}/{slide_name}_{hospital}_preds_probas_checkpoint.pt"
+            f"{tumor_checkpoints}/{slide_name}_{hospital}_preds_probas_checkpoint.pt",weights_only=False
         )
         chkpt_inflam = torch.load(
-            f"{inflams_checkpoints}/{slide_name}_{hospital}_coords_inflams_checkpoint.pt"
+            f"{inflams_checkpoints}/{slide_name}_{hospital}_coords_inflams_checkpoint.pt",weights_only=False
         )
+
+        [x_start, y_start, _, _] = chkpt_coords["xy_start_end"]
 
         # new pd frame for tumor
         df_tumor = pd.DataFrame()
@@ -68,37 +83,15 @@ def main():
         df_tumor["x"] = chkpt_tumor["coords_x"]
         df_tumor["y"] = chkpt_tumor["coords_y"]
         df_tumor["tumor"] = [p.item() for p in chkpt_tumor["har_mean_preds"]]
+        df_tumor["xx"] = df_tumor["x"] * vis_scale - x_start
+        df_tumor["yy"] = df_tumor["y"] * vis_scale - y_start
 
-        # new pd frame for inflam
-        df_inflams = pd.DataFrame()
-        df_inflams["x"] = chkpt_inflam["coords_x"]
-        df_inflams["y"] = chkpt_inflam["coords_y"]
-        df_inflams["inflams"] = chkpt_inflam["inflams"]
-
-        [x_start, y_start, _, _] = chkpt_coords["xy_start_end"]
-        
-        ###### ATTENTION ! PROBLEMES ! ######
-        df_map = pd.DataFrame(
-            columns=["x", "y", "tumor", "inflams"], index=range(len(df_tumor))
-        )
-        for j in range(len(df_tumor)):
-            x, y, p = df_tumor.iloc[j].values
-            _, _, ii = df_inflams.loc[
-                (df_inflams["x"] == x) & (df_inflams["y"] == y)
-            ].values[0]
-            df_map.iloc[j] = pd.Series([x, y, p, ii], index=df_map.columns)
-
-        ###### fin des problèmes ######
-
-        df_map["xx"] = df_map["x"] * vis_scale - x_start
-        df_map["yy"] = df_map["y"] * vis_scale - y_start
-
-        coords_x = df_map["xx"].values
-        coords_y = df_map["yy"].values
-        preds = df_map["tumor"].values
+        coords_x = df_tumor["xx"].values
+        coords_y = df_tumor["yy"].values
+        preds = df_tumor["tumor"].values
 
         # init black image
-        image_bin = np.zeros(
+        image_bin_tum = np.zeros(
             (int(coords_y.max()) + 2 * step, int(coords_x.max()) + 2 * step), dtype=np.uint8
         )
 
@@ -107,7 +100,53 @@ def main():
         for x, y, p in zip(coords_x, coords_y, preds):
             set_p.add(p)
             if p in [1, 2]:
-                image_bin[int(y) : int(y) + step, int(x) : int(x) + step] = 255
+                image_bin_tum[int(y) : int(y) + step, int(x) : int(x) + step] = 1
+
+        # new pd frame for inflam
+        df_inflams = pd.DataFrame()
+        df_inflams["x"] = chkpt_inflam["coords_x"]
+        df_inflams["y"] = chkpt_inflam["coords_y"]
+        df_inflams["inflams"] = chkpt_inflam["inflams"]
+        
+        # downscale slide coordinates
+        df_inflams["xx"] = df_inflams["x"]* vis_scale - x_start
+        df_inflams["yy"] = df_inflams["y"]* vis_scale - y_start
+
+        coords_x = df_inflams["xx"].values
+        coords_y = df_inflams["yy"].values
+        preds = df_inflams["inflams"].values
+
+        # init black image for inflamation
+        image_bin_inf = np.zeros(
+            (int(coords_y.max()) + 2 * step, int(coords_x.max()) + 2 * step), dtype=np.uint8
+        )
+
+        # make pixels where value
+        set_inflams = set()
+        for x, y, p in zip(coords_x, coords_y, preds):
+            set_inflams.add(p)
+            if p >0:
+                image_bin_inf[int(y) : int(y) + step, int(x) : int(x) + step] = p
+
+        if verbose:
+            plt.subplot(2,2,1)
+            plt.imshow(image_bin_inf)
+            plt.title('image inflammation')
+            plt.subplot(2,2,2)
+            plt.imshow(image_bin_tum)
+            plt.title('image tumor')
+            plt.subplot(2,2,3)
+            img_tum_pil = Image.fromarray(image_bin_tum)
+            img_tum_pil = img_tum_pil.resize(image_bin_inf.T.shape)
+            img_tum_res = np.asarray(img_tum_pil)
+            plt.imshow(img_tum_res)
+            plt.title('resized tumor')
+            plt.subplot(2,2,4)
+            plt.imshow((img_tum_res*image_bin_inf))
+            plt.title("sum")
+            plt.savefig()
+        
+
 
         image_bin = cv2.copyMakeBorder(
             image_bin,
