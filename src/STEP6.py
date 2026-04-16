@@ -5,17 +5,29 @@ import yaml
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from  PIL import Image
 from matplotlib.colors import Normalize
 import matplotlib.cm as cm
+import argparse
 from utils.utils_tumor import (
     gen_image_from_coords,
     gen_image_from_coords_bis,
 )
 
+def parse_arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--verbose",type=bool,default=True)
+    args = parser.parse_args()
+    return args
+
 def main():
     # read hyperparameters
     with open("config.yaml", "r") as f:
         config = yaml.safe_load(f)
+
+    # parse arguments
+    args = parse_arguments()
+    verbose = args.verbose
 
     patch_size = config["patching"]["patch_size_dict"]["PB"]
     colors = {
@@ -30,12 +42,15 @@ def main():
     }
 
     vis_scale = config["patching"]["vis_scale"]
+
+    # TODO : adapt the step for inflammation 
     step = int(vis_scale * patch_size)
     padding = 2 * step
 
     tumor_checkpoints =  config["paths"]["pth_to_tumor_ckpts"]
     coords_checkpoints =  config["paths"]["pth_to_coords"]
     inflams_checkpoints =  config["paths"]["pth_to_inflams_ckpts"]
+    inflams_verbose = config["paths"]["pth_to_inflams_wsis"]
 
 
     # create a dataframe
@@ -52,13 +67,15 @@ def main():
         slide_name = slide.split("_")[0]
         hospital = slide.split("_")[1]
         # load the tumoral predictions
-        chkpt_coords = torch.load(f"{coords_checkpoints}/{slide_name}_{hospital}_coords_checkpoint.pt")
+        chkpt_coords = torch.load(f"{coords_checkpoints}/{slide_name}_{hospital}_coords_checkpoint.pt",weights_only=False)
         chkpt_tumor = torch.load(
-            f"{tumor_checkpoints}/{slide_name}_{hospital}_preds_probas_checkpoint.pt"
+            f"{tumor_checkpoints}/{slide_name}_{hospital}_preds_probas_checkpoint.pt",weights_only=False
         )
         chkpt_inflam = torch.load(
-            f"{inflams_checkpoints}/{slide_name}_{hospital}_coords_inflams_checkpoint.pt"
+            f"{inflams_checkpoints}/{slide_name}_{hospital}_coords_inflams_checkpoint.pt",weights_only=False
         )
+
+        [x_start, y_start, _, _] = chkpt_coords["xy_start_end"]
 
         # new pd frame for tumor
         df_tumor = pd.DataFrame()
@@ -66,40 +83,70 @@ def main():
         df_tumor["x"] = chkpt_tumor["coords_x"]
         df_tumor["y"] = chkpt_tumor["coords_y"]
         df_tumor["tumor"] = [p.item() for p in chkpt_tumor["har_mean_preds"]]
+        df_tumor["xx"] = df_tumor["x"] * vis_scale - x_start
+        df_tumor["yy"] = df_tumor["y"] * vis_scale - y_start
+
+        coords_x = df_tumor["xx"].values
+        coords_y = df_tumor["yy"].values
+        preds = df_tumor["tumor"].values
+
+        # init black image
+        image_bin_tum = np.zeros(
+            (int(coords_y.max()) + 2 * step, int(coords_x.max()) + 2 * step), dtype=np.uint8
+        )
+
+        # make white pixels where tumor
+        set_p = set()
+        for x, y, p in zip(coords_x, coords_y, preds):
+            set_p.add(p)
+            if p in [1, 2]:
+                image_bin_tum[int(y) : int(y) + step, int(x) : int(x) + step] = 1
 
         # new pd frame for inflam
         df_inflams = pd.DataFrame()
         df_inflams["x"] = chkpt_inflam["coords_x"]
         df_inflams["y"] = chkpt_inflam["coords_y"]
         df_inflams["inflams"] = chkpt_inflam["inflams"]
-
-        [x_start, y_start, _, _] = chkpt_coords["xy_start_end"]
         
-        df_map = pd.DataFrame(
-            columns=["x", "y", "tumor", "inflams"], index=range(len(df_tumor))
-        )
-        for j in range(len(df_tumor)):
-            x, y, p = df_tumor.iloc[j].values
-            _, _, ii = df_inflams.loc[
-                (df_inflams["x"] == x) & (df_inflams["y"] == y)
-            ].values[0]
-            df_map.iloc[j] = pd.Series([x, y, p, ii], index=df_map.columns)
+        # downscale slide coordinates
+        df_inflams["xx"] = df_inflams["x"]* vis_scale - x_start
+        df_inflams["yy"] = df_inflams["y"]* vis_scale - y_start
 
-        df_map["xx"] = df_map["x"] * vis_scale - x_start
-        df_map["yy"] = df_map["y"] * vis_scale - y_start
+        coords_x = df_inflams["xx"].values
+        coords_y = df_inflams["yy"].values
+        preds = df_inflams["inflams"].values
 
-        coords_x = df_map["xx"].values
-        coords_y = df_map["yy"].values
-        preds = df_map["tumor"].values
-
-        image_bin = np.zeros(
+        # init black image for inflamation
+        image_bin_inf = np.zeros(
             (int(coords_y.max()) + 2 * step, int(coords_x.max()) + 2 * step), dtype=np.uint8
         )
-        set_p = set()
+
+        # make pixels where value
+        set_inflams = set()
         for x, y, p in zip(coords_x, coords_y, preds):
-            set_p.add(p)
-            if p in [1, 2]:
-                image_bin[int(y) : int(y) + step, int(x) : int(x) + step] = 255
+            set_inflams.add(p)
+            if p >0:
+                image_bin_inf[int(y) : int(y) + step, int(x) : int(x) + step] = p
+
+        if verbose:
+            plt.subplot(2,2,1)
+            plt.imshow(image_bin_inf)
+            plt.title('image inflammation')
+            plt.subplot(2,2,2)
+            plt.imshow(image_bin_tum)
+            plt.title('image tumor')
+            plt.subplot(2,2,3)
+            img_tum_pil = Image.fromarray(image_bin_tum)
+            img_tum_pil = img_tum_pil.resize(image_bin_inf.T.shape)
+            img_tum_res = np.asarray(img_tum_pil)
+            plt.imshow(img_tum_res)
+            plt.title('resized tumor')
+            plt.subplot(2,2,4)
+            plt.imshow((img_tum_res*image_bin_inf))
+            plt.title("sum")
+            plt.savefig()
+        
+
 
         image_bin = cv2.copyMakeBorder(
             image_bin,
@@ -155,20 +202,25 @@ def main():
             value=[0],
         )
 
+        # fill in the holes 
+        # TODO: adapt kernel depending on the mpp
         kernel = cv2.getStructuringElement(
             cv2.MORPH_RECT, (19, 19)
         )  # 5x5 rectangular kernel
         closed_image = cv2.morphologyEx(image_bin, cv2.MORPH_CLOSE, kernel)
 
+        # remove small objects
         kernel = cv2.getStructuringElement(
             cv2.MORPH_RECT, (35, 35)
         )  # 5x5 rectangular kernel
         opened_image = cv2.morphologyEx(closed_image, cv2.MORPH_OPEN, kernel)
 
+        # take external border 
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (55, 55))
         dilated_image = cv2.dilate(opened_image, kernel, iterations=1)
         out_tumor = dilated_image - opened_image
 
+        # take internal border
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (55, 55))
         eroded_image = cv2.erode(opened_image, kernel, iterations=1)
         in_tumor = opened_image - eroded_image
@@ -181,6 +233,7 @@ def main():
         eroded_image_color = np.stack(
             [np.zeros_like(in_tumor), in_tumor, np.zeros_like(in_tumor)], axis=2
         )  # green channel (0, 255, 0)
+
         dilated_image_color = np.stack(
             [np.zeros_like(out_tumor), np.zeros_like(out_tumor), out_tumor], axis=2
         )  # blue channel (0, 0, 255)
@@ -188,12 +241,15 @@ def main():
         colored_in_tumor = np.clip(image_bin_color + eroded_image_color, 0, 255).astype(
             np.uint8
         )
+        
         colored_out_tumor = np.clip(image_bin_color + dilated_image_color, 0, 255).astype(
             np.uint8
         )
+        
         eroded_image_color = np.stack(
             [in_tumor, in_tumor, np.zeros_like(in_tumor)], axis=2
         )  # green channel (0, 255, 0)
+        
         colored_in_out = np.clip(eroded_image_color + dilated_image_color, 0, 255).astype(
             np.uint8
         )
@@ -216,22 +272,27 @@ def main():
             mask=inout_tumor_mask,
         )
 
+        # compute number of inflams in tumor
         idx_X, idx_Y = np.nonzero(final_inflam_tumor_image)
         INFLAM_IN_ALL_T = final_inflam_tumor_image.sum() / len(idx_X)
         # print("inflam cells inside all tumor (mean per patch)", INFLAM_IN_ALL_T)
 
+        # compute number of inflams inout tumor
         idx_X, idx_Y = np.nonzero(final_inout_tumor_image)
         INFLAM_INOUT_T = final_inout_tumor_image.sum() / len(idx_X)
         # print("inflam cells surrounding tumor (in & out) (mean per patch)", INFLAM_INOUT_T)
 
+        # add to the table
         df.loc[df["lame"] == slide_name] = [slide_name, INFLAM_INOUT_T, INFLAM_IN_ALL_T]
 
         df["patient"] = df["lame"].apply(lambda x: x[:-1]).astype(int)
 
-        df_inflams = pd.DataFrame(
+    df_inflams = pd.DataFrame(
         index=df["patient"].unique(),
         columns=["patient", "peri-tumoral", "intra-tumoral"],
     )
+    
+    # compute mean
     df_inflams["patient"] = df["patient"].unique()
     for patient in df["patient"].unique():
         df_inflams.loc[df_inflams["patient"] == patient] = [patient] + list(
