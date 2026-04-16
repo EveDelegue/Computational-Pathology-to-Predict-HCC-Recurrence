@@ -9,6 +9,7 @@ def parse_arguments():
     parser.add_argument("--slide_name", type=str)
     parser.add_argument("--verbose",type=bool,default=True)
     parser.add_argument("--tia_patch_size",type=int,default=256)
+    parser.add_argument("--task", type=str,default='all',choices=['all','inflam','tumor'])
     args = parser.parse_args()
     return args
 
@@ -32,6 +33,7 @@ def main():
 
     args = parse_arguments()
     verbose = args.verbose
+    task = args.task
     sn = args.slide_name # ex : data/WSIs/PB/Patient_93/93A.mrxs
     tia_patch_size = tia_step = args.tia_patch_size
     path_to_wsis = sn.split("Patient")[0] # chemin avant la lame ex : data/WSIs/PB/
@@ -46,47 +48,48 @@ def main():
     patch_size = step = patch_size_dict[hospital_name]
     mpp = mpp_dict[hospital_name]
 
-
-    # generate patches for tumor detection
-    if slide_name.split(os.path.sep)[-1].split(".")[0]+'_' + hospital_name not in os.listdir(patches_path): # ex : si 93A_PB pas déjà parmis les patches
-        generate_patches_from_wsi(
-            slide_name,
-            path_to_wsi=path_to_wsis,
-            patch_size=patch_size,
-            step=step,
-            path_to_patches=patches_path,
-            vis_scale=vis_scale,
-            overview_path=overview_path,
-            hospital_name=hospital_name,
-            coords_path=coords_path,
-            perc_wpx=perc_wpx,
-            perc_bpx=perc_bpx,
-            enlarge=enlarge,
-            verbose=verbose
-        )
-    else:
-        print(slide_name, "exists")
+    if not(task=='inflam'):
+        # generate patches for tumor detection
+        if slide_name.split(os.path.sep)[-1].split(".")[0]+'_' + hospital_name not in os.listdir(patches_path): # ex : si 93A_PB pas déjà parmis les patches
+            generate_patches_from_wsi(
+                slide_name,
+                path_to_wsi=path_to_wsis,
+                patch_size=patch_size,
+                step=step,
+                path_to_patches=patches_path,
+                vis_scale=vis_scale,
+                overview_path=overview_path,
+                hospital_name=hospital_name,
+                coords_path=coords_path,
+                perc_wpx=perc_wpx,
+                perc_bpx=perc_bpx,
+                enlarge=enlarge,
+                verbose=verbose
+            )
+        else:
+            print(slide_name, "exists")
     
-    # generate patches for nucleus segmentation
-    if slide_name.split(os.path.sep)[-1].split(".")[0]+'_' + hospital_name not in os.listdir(patches_path_bis): # ex : si 93A_PB pas déjà parmis les patches
-        generate_patches_from_wsi_2(
-            slide_name,
-            path_to_wsi=path_to_wsis,
-            patch_size=tia_patch_size,
-            mpp= mpp,
-            step=tia_step,
-            path_to_patches=patches_path_bis,
-            vis_scale=vis_scale,
-            overview_path=overview_path_bis,
-            hospital_name=hospital_name,
-            coords_path=coords_path_bis,
-            perc_wpx=perc_wpx,
-            perc_bpx=perc_bpx,
-            enlarge=enlarge,
-            verbose=verbose
-        )
-    else:
-        print(slide_name.split(os.path.sep)[-1].split(".")[0]+'_' + hospital_name, "exists")
+    if not(task=='tumor'):
+        # generate patches for inflammatory cells segmentation
+        if slide_name.split(os.path.sep)[-1].split(".")[0]+'_' + hospital_name not in os.listdir(patches_path_bis): # ex : si 93A_PB pas déjà parmis les patches
+            generate_patches_from_wsi_2(
+                slide_name,
+                path_to_wsi=path_to_wsis,
+                patch_size=tia_patch_size,
+                mpp= mpp,
+                step=tia_step,
+                path_to_patches=patches_path_bis,
+                vis_scale=vis_scale,
+                overview_path=overview_path_bis,
+                hospital_name=hospital_name,
+                coords_path=coords_path_bis,
+                perc_wpx=perc_wpx,
+                perc_bpx=perc_bpx,
+                enlarge=enlarge,
+                verbose=verbose
+            )
+        else:
+            print(slide_name.split(os.path.sep)[-1].split(".")[0]+'_' + hospital_name, "exists")
   
 
 

@@ -13,6 +13,7 @@ patching:
   perc_bpx: 0.05
   enlarge: 5
   ref_hospital: 'PB'
+  tia_patch_size: 256
 
 # Visualization parameters
 visualization:
