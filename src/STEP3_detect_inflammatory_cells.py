@@ -43,7 +43,7 @@ def main():
     vis_scale = config["patching"]["vis_scale"]
     pth_to_inflams_dats = config["paths"]["pth_to_inflams_dats"]
     patches_dir = config["paths"]["pth_to_patches_bis"]
-    coords_checkpoints = config["paths"]["pth_to_coords"]
+    coords_checkpoints = config["paths"]["pth_to_coords_bis"]
     inflams_checkpoints = config["paths"]["pth_to_inflams_ckpts"]
     inflams_wsis_results = config["paths"]["pth_to_inflams_wsis"]
 
