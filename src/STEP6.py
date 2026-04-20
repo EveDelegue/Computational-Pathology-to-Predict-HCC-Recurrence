@@ -30,6 +30,8 @@ def main():
     verbose = args.verbose
 
     patch_size = config["patching"]["patch_size_dict"]["PB"]
+    tia_patch_size = config["patching"]["tia_patch_size"]
+
     colors = {
         0: config["visualization"]["colors"]["healthy"],
         1: config["visualization"]["colors"]["non_pej"],
@@ -47,6 +49,9 @@ def main():
     step = int(vis_scale * patch_size)
     padding = 2 * step
 
+    step_inflam = int(vis_scale * tia_patch_size)
+    padding_inflam = 2 * step_inflam
+
     tumor_checkpoints =  config["paths"]["pth_to_tumor_ckpts"]
     coords_checkpoints =  config["paths"]["pth_to_coords"]
     inflams_checkpoints =  config["paths"]["pth_to_inflams_ckpts"]
@@ -60,7 +65,7 @@ def main():
     df["lame"] = [
         slide_name.split("_")[0] for slide_name in os.listdir(inflams_checkpoints)
     ]
-    slides = sorted(os.listdir(inflams_checkpoints))
+    slides = os.listdir(inflams_checkpoints)
 
     # for each lame,
     for slide in slides:
@@ -86,21 +91,9 @@ def main():
         df_tumor["xx"] = df_tumor["x"] * vis_scale - x_start
         df_tumor["yy"] = df_tumor["y"] * vis_scale - y_start
 
-        coords_x = df_tumor["xx"].values
-        coords_y = df_tumor["yy"].values
+        coords_x_tum = df_tumor["xx"].values
+        coords_y_tum = df_tumor["yy"].values
         preds = df_tumor["tumor"].values
-
-        # init black image
-        image_bin_tum = np.zeros(
-            (int(coords_y.max()) + 2 * step, int(coords_x.max()) + 2 * step), dtype=np.uint8
-        )
-
-        # make white pixels where tumor
-        set_p = set()
-        for x, y, p in zip(coords_x, coords_y, preds):
-            set_p.add(p)
-            if p in [1, 2]:
-                image_bin_tum[int(y) : int(y) + step, int(x) : int(x) + step] = 1
 
         # new pd frame for inflam
         df_inflams = pd.DataFrame()
@@ -112,88 +105,54 @@ def main():
         df_inflams["xx"] = df_inflams["x"]* vis_scale - x_start
         df_inflams["yy"] = df_inflams["y"]* vis_scale - y_start
 
-        coords_x = df_inflams["xx"].values
-        coords_y = df_inflams["yy"].values
-        preds = df_inflams["inflams"].values
+        coords_x_inf = df_inflams["xx"].values
+        coords_y_inf = df_inflams["yy"].values
+        preds_inf = df_inflams["inflams"].values
+
+        coords_y_max = max(coords_y_tum.max()+2*step,coords_y_inf.max()+2*step_inflam)
+        coords_x_max = max(coords_x_tum.max()+2*step,coords_x_inf.max()+2*step_inflam)
+        # init black image
+        image_bin_tum = np.zeros(
+            (int(coords_y_max), int(coords_x_max)), dtype=np.uint8
+        )
+
+        # make white pixels where tumor
+        set_p = set()
+        for x, y, p in zip(coords_x_tum, coords_y_tum, preds):
+            set_p.add(p)
+            if p in [1, 2]:
+                image_bin_tum[int(y) : int(y) + step, int(x) : int(x) + step] = 1
 
         # init black image for inflamation
-        image_bin_inf = np.zeros(
-            (int(coords_y.max()) + 2 * step, int(coords_x.max()) + 2 * step), dtype=np.uint8
+        image_inf = np.zeros(
+            (int(coords_y_max), int(coords_x_max)), dtype=np.uint8
         )
 
         # make pixels where value
         set_inflams = set()
-        for x, y, p in zip(coords_x, coords_y, preds):
+        for x, y, p in zip(coords_x_inf, coords_y_inf, preds_inf):
             set_inflams.add(p)
             if p >0:
-                image_bin_inf[int(y) : int(y) + step, int(x) : int(x) + step] = p
+                image_inf[int(y) : int(y) + step_inflam, int(x) : int(x) + step_inflam] =p
 
         if verbose:
             plt.subplot(2,2,1)
-            plt.imshow(image_bin_inf)
+            plt.imshow(image_inf,vmax=5)
             plt.title('image inflammation')
             plt.subplot(2,2,2)
             plt.imshow(image_bin_tum)
             plt.title('image tumor')
             plt.subplot(2,2,3)
-            img_tum_pil = Image.fromarray(image_bin_tum)
-            img_tum_pil = img_tum_pil.resize(image_bin_inf.T.shape)
-            img_tum_res = np.asarray(img_tum_pil)
+            img_tum_res = image_bin_tum
             plt.imshow(img_tum_res)
             plt.title('resized tumor')
             plt.subplot(2,2,4)
-            plt.imshow((img_tum_res*image_bin_inf))
+            plt.imshow((img_tum_res*image_inf),vmax=5)
             plt.title("sum")
-            plt.savefig()
+            plt.savefig(inflams_verbose+'/'+slide.replace('pt','png'))
         
-
-
-        image_bin = cv2.copyMakeBorder(
-            image_bin,
-            top=padding,
-            bottom=padding,
-            left=padding,
-            right=padding,
-            borderType=cv2.BORDER_CONSTANT,
-            value=[0],
-        )
-
-        image_inflams = gen_image_from_coords_bis(
-            df_map["xx"],
-            df_map["yy"],
-            df_map["inflams"].values,
-            step,
-        )
-
-        scaled_slide = cv2.copyMakeBorder(
-            chkpt_tumor["scaled_slide"].astype(np.uint8),
-            top=padding,
-            bottom=padding,
-            left=padding,
-            right=padding,
-            borderType=cv2.BORDER_CONSTANT,
-            value=[255, 255, 255],
-        )
-
-        image_tumor = gen_image_from_coords(
-            df_map["xx"],
-            df_map["yy"],
-            [torch.tensor(e) for e in df_map["tumor"]],
-            step,
-            colors,
-        )
-        image_tumor = cv2.copyMakeBorder(
-            image_tumor,
-            top=padding,
-            bottom=padding,
-            left=padding,
-            right=padding,
-            borderType=cv2.BORDER_CONSTANT,
-            value=[255, 255, 255],
-        )
-
-        image_inflams = cv2.copyMakeBorder(
-            image_inflams,
+        image_tum_res = cv2.copyMakeBorder(
+            img_tum_res,
             top=padding,
             bottom=padding,
             left=padding,
@@ -206,22 +165,22 @@ def main():
         # TODO: adapt kernel depending on the mpp
         kernel = cv2.getStructuringElement(
             cv2.MORPH_RECT, (19, 19)
-        )  # 5x5 rectangular kernel
-        closed_image = cv2.morphologyEx(image_bin, cv2.MORPH_CLOSE, kernel)
+        )  # rectangular kernel. 
+        closed_image = cv2.morphologyEx(image_tum_res, cv2.MORPH_CLOSE, kernel)
 
         # remove small objects
         kernel = cv2.getStructuringElement(
             cv2.MORPH_RECT, (35, 35)
-        )  # 5x5 rectangular kernel
+        )  # rectangular kernel corresponds to 1 cm
         opened_image = cv2.morphologyEx(closed_image, cv2.MORPH_OPEN, kernel)
 
         # take external border 
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (55, 55))
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (55, 55)) # corresponds to 1.6 cm
         dilated_image = cv2.dilate(opened_image, kernel, iterations=1)
         out_tumor = dilated_image - opened_image
 
         # take internal border
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (55, 55))
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (55, 55)) # corresponds to 1.6 cm
         eroded_image = cv2.erode(opened_image, kernel, iterations=1)
         in_tumor = opened_image - eroded_image
 
@@ -253,6 +212,23 @@ def main():
         colored_in_out = np.clip(eroded_image_color + dilated_image_color, 0, 255).astype(
             np.uint8
         )
+
+
+        if verbose:
+            plt.subplot(2,2,1)
+            plt.imshow(img_tum_res )
+            plt.title('colored in tumor')
+            plt.subplot(2,2,2)
+            plt.imshow(closed_image )
+            plt.title('colored in tumor')
+            plt.subplot(2,2,3)
+            plt.imshow(img_tum_res)
+            plt.title('resized tumor')
+            plt.subplot(2,2,4)
+            plt.imshow(colored_in_out
+                       )
+            plt.title("sum")
+            plt.savefig(inflams_verbose+'/'+slide.replace('.pt','_inout.png'))
 
         black_pixels_mask = np.all(image_bin_color == [0, 0, 0], axis=-1)
         image_bin_color[black_pixels_mask] = [255, 255, 255]
