@@ -8,6 +8,11 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 from collections import defaultdict
 from tiatoolbox.models.engine.nucleus_instance_segmentor import NucleusInstanceSegmentor
+from tiatoolbox.utils.visualization import (
+    overlay_prediction_contours,
+)
+from tiatoolbox.utils import misc
+import zarr
 from utils.utils_inflams import (
     color_dict_pannuke,
     get_Inflammatory,
@@ -101,22 +106,21 @@ def main():
         )
 
         # load the output data
-        file_map = joblib.load(f"{save_dir}/file_map.dat") # ex : checkpoints/inflam_dats/93A_PB/file_map.dat
-        dict4 = {}  # dictionary of results: {id: centroid, contour, proba, type}
-        dict_xy_nucs = {}  # dictionary {x,y): [nuc_id1, nuc_id2,...]}
+        tile_outputs = zarr.open(os.path.join(save_dir,'output.zarr'), mode="r")
         
-        for im_dir, out_dir in tqdm(
-            file_map, desc=f"Processing {save_dir}/file_map.dat", leave=False
-        ):
-            out_dir = f"{save_dir}/{out_dir.split('/')[-1]}.dat" # ex : checkpoints/inflam_dats/93A_PB/0.dat
-            tile_preds = joblib.load(f"{out_dir}")
-            InfLymph_nucleus1, _ = get_Inflammatory(tile_preds, color_dict_pannuke) # get a detail of all inflamatory nucleus
-            dict4 |= InfLymph_nucleus1
-            _, x, _, y = im_dir[:-4].split("_")[-4:] 
-            dict_xy_nucs[(x, y)] = list(tile_preds.keys()) # dict of all the inflammatory nucleus ids
         final_dict = defaultdict(list)
-        for xy, v in dict_xy_nucs.items():
-            final_dict[xy].extend([nuc_id for nuc_id in v if nuc_id in dict4])
+
+        for id_patch,im_dir in tqdm(
+            enumerate(images), desc=f"Processing {save_dir}/file_map.dat", leave=False
+        ): # for each tile
+            
+            types = tile_outputs['type'][id_patch]
+            
+
+            id_list = [id for id,type_id in enumerate(types) if color_dict_pannuke[int(type_id)][0] in ["Inflammatory", "Lymphocyte", "Macrophage"]]
+
+            _, x, _, y = im_dir[:-4].split("_")[-4:] 
+            final_dict[(x,y)] = id_list
 
         coords_x, coords_y, num_nucleus = zip(
             *((int(k[0]), int(k[1]), len(v)) for k, v in final_dict.items())
@@ -164,3 +168,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
