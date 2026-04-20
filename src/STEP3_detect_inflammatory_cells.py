@@ -20,7 +20,7 @@ print("running on", device)
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--slide_name", type=str)
+    parser.add_argument("--slide_name", type=str,default='data/patches_bis/93A_PB')
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--verbose",type=bool,default=True)
     parser.add_argument(
@@ -70,11 +70,17 @@ def main():
         # init model
         if hovernet in ["pannuke", "monusac"]:
             model = NucleusInstanceSegmentor(
-                model="hovernet_fast-" + hovernet, batch_size=batch_size
+                model="hovernet_fast-" + hovernet,
+                batch_size=batch_size,
+                num_workers=multiprocessing.cpu_count()//2,
+                device=device
             )
         else:
             model = NucleusInstanceSegmentor(
-                model="hovernet_original-consep", batch_size=batch_size
+                model="hovernet_original-consep",
+                batch_size=batch_size,
+                num_workers=multiprocessing.cpu_count()//2,
+                device=device
             )
 
         save_dir = f"{pth_to_inflams_dats}/{slide_name}/" # ex : checkpoints/inflam_dats/93A_PB
@@ -84,12 +90,14 @@ def main():
         ]
 
         # detect nucleus
-        model.predict(
+        model.run(
             images,
             mode="tile",
+            patch_mode=True,
             save_dir=save_dir,
             device=device,
-            crash_on_exception=True,
+            auto_get_mask=False,
+            input_resolutions= [{"units": "mpp", "resolution": 0.25}]*len(images)
         )
 
         # load the output data

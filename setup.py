@@ -15,9 +15,8 @@ setup(
     # --- Dependencies ---
     install_requires=[
         "openpyxl",
-        "tiatoolbox==1.6.0",
-        "openslide-bin",
-        "numcodecs==0.15.1"
+        "tiatoolbox==2.0.1",
+        "openslide-bin"
     ],
     include_package_data=True,
     python_requires=">=3.8",
