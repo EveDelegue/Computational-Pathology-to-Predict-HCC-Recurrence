@@ -1,36 +1,21 @@
-import os
-import joblib
 import torch
 import argparse
 import yaml
+import os
 import numpy as np
-from tqdm import tqdm
+from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
-from collections import defaultdict
-from tiatoolbox.models.engine.nucleus_instance_segmentor import NucleusInstanceSegmentor
-from tiatoolbox.utils.visualization import (
-    overlay_prediction_contours,
-)
-from tiatoolbox.utils import misc
-import zarr
-from utils.utils_inflams import (
-    color_dict_pannuke,
-    get_Inflammatory,
-)
-import multiprocessing
+
+from utils.utils_inflams import load_net, PatchDataset, inference, post_process
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print("running on", device)
-
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--slide_name", type=str,default='data/patches_bis/93A_PB')
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--verbose",type=bool,default=True)
-    parser.add_argument(
-        "--hovernet", type=str, default="pannuke"
-    )  # "pannuke", "monusac", "consep"
     args = parser.parse_args()
     return args
 
@@ -40,18 +25,16 @@ def main():
     verbose = args.verbose
     slide_name = args.slide_name.split(os.path.sep)[-1] #ex : 93A_PB
     batch_size = args.batch_size
-    hovernet = args.hovernet
 
     with open("config.yaml", "r") as f:
         config = yaml.safe_load(f)
 
     vis_scale = config["patching"]["vis_scale"]
-    pth_to_inflams_dats = config["paths"]["pth_to_inflams_dats"]
     patches_dir = config["paths"]["pth_to_patches_bis"]
     coords_checkpoints = config["paths"]["pth_to_coords_bis"]
     inflams_checkpoints = config["paths"]["pth_to_inflams_ckpts"]
     inflams_wsis_results = config["paths"]["pth_to_inflams_wsis"]
-
+  
     if not os.path.exists(
         f"{inflams_checkpoints}/{slide_name}_coords_inflams_checkpoint.pt"
     ):
@@ -72,59 +55,22 @@ def main():
         coords_x = np.array(coords_x) * vis_scale - x_start
         coords_y = np.array(coords_y) * vis_scale - y_start
 
-        # init model
-        if hovernet in ["pannuke", "monusac"]:
-            model = NucleusInstanceSegmentor(
-                model="hovernet_fast-" + hovernet,
-                batch_size=batch_size,
-                num_workers=multiprocessing.cpu_count()//2,
-                device=device
-            )
-        else:
-            model = NucleusInstanceSegmentor(
-                model="hovernet_original-consep",
-                batch_size=batch_size,
-                num_workers=multiprocessing.cpu_count()//2,
-                device=device
-            )
+        ###### inflam detection
+        # load the net
+        net = load_net(device=device)
 
-        save_dir = f"{pth_to_inflams_dats}/{slide_name}/" # ex : checkpoints/inflam_dats/93A_PB
-        images = [
-            f"{patches_dir}/{slide_name}/{e}"
-            for e in os.listdir(f"{patches_dir}/{slide_name}")
-        ]
+        # make dataloader
+        dataset = PatchDataset(os.path.join(patches_dir,slide_name))
+        dataloader = DataLoader(dataset=dataset,batch_size=batch_size)
 
-        # detect nucleus
-        model.run(
-            images,
-            mode="tile",
-            patch_mode=True,
-            save_dir=save_dir,
-            device=device,
-            auto_get_mask=False,
-            input_resolutions= [{"units": "mpp", "resolution": 0.25}]*len(images)
-        )
-
-        # load the output data
-        tile_outputs = zarr.open(os.path.join(save_dir,'output.zarr'), mode="r")
+        with torch.no_grad():  # dont compute gradient
+            # inference
+            raw_results = inference(dataloader,net)
         
-        final_dict = defaultdict(list)
+        # post processing
+        
+        num_nucleus,coords_x,coords_y = post_process(raw_results)
 
-        for id_patch,im_dir in tqdm(
-            enumerate(images), desc=f"Processing {save_dir}/file_map.dat", leave=False
-        ): # for each tile
-            
-            types = tile_outputs['type'][id_patch]
-            
-
-            id_list = [id for id,type_id in enumerate(types) if color_dict_pannuke[int(type_id)][0] in ["Inflammatory", "Lymphocyte", "Macrophage"]]
-
-            _, x, _, y = im_dir[:-4].split("_")[-4:] 
-            final_dict[(x,y)] = id_list
-
-        coords_x, coords_y, num_nucleus = zip(
-            *((int(k[0]), int(k[1]), len(v)) for k, v in final_dict.items())
-        )
         inf_nucleus_sorted, coords_X, coords_Y = zip(
             *sorted(zip(num_nucleus, coords_x, coords_y), key=lambda x: x[0])
         )
