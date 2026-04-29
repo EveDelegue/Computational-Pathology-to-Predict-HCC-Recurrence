@@ -626,14 +626,13 @@ class PatchDataset(Dataset):
         img_path = self.list_dir[index]
         image = Image.open(os.path.join(self.dir,img_path))
         _, _, x, _, y = img_path[:-4].split("_")
-        return self.transform(image),x,y
+        return self.transform(image),int(x),int(y)
 
 def load_net(device):
     net = HoVerNet(nr_types=6,mode='fast')
-    try:
-        saved_state_dict = torch.load(os.path.join(os.curdir,'hover_net','hovernet_fast_pannuke_type_tf2pytorch.tar'),)["desc"]
-    except:
+    if not os.path.exists(os.path.join(os.curdir,'models','hovernet_fast_pannuke_type_tf2pytorch.tar')):
         print('No pretrained NN. Download it in from https://drive.google.com/file/d/1SbSArI3KOOWHxRlxnjchO7_MbWzB4lNR/view \n and copy it to ',os.path.join(os.curdir,'models','hovernet_fast_pannuke_type_tf2pytorch.tar'))
+    saved_state_dict = torch.load(os.path.join(os.curdir,'models','hovernet_fast_pannuke_type_tf2pytorch.tar'),)["desc"]
     saved_state_dict = convert_pytorch_checkpoint(saved_state_dict)
 
 
@@ -643,7 +642,7 @@ def load_net(device):
 
 def inference(dataloader,net):
         raw_dict = {}
-        for i,(imgs,xs,ys) in tqdm(enumerate(dataloader)):
+        for i,(imgs,xs,ys) in tqdm(enumerate(dataloader),total=len(dataloader)):
             pred_dict = net(imgs)
             pred_dict = OrderedDict(
                 [[k, v.permute(0, 2, 3, 1).contiguous()] for k, v in pred_dict.items()]
@@ -822,14 +821,14 @@ def get_n_inflam(post_processed, pred_tp):
 def post_process(raw): 
     num_nucleus, coords_x, coords_y = [],[],[]
     # for each batch
-    for batch_id,batch_result in tqdm(raw):
+    for _,batch_result in tqdm(raw.items()):
         prob_np,pred_hv,pred_tp,xs,ys = batch_result["raw"]['prob_np'], batch_result["raw"]['pred_hv'], batch_result["raw"]['pred_tp'], batch_result["raw"]['xs'], batch_result["raw"]['ys'] 
         # for each sample from a batch
         for i in range(prob_np.shape[0]):
             blb_raw = prob_np[i]
             h_dir_raw = pred_hv[i,...,0]
             v_dir_raw = pred_hv[i,...,1]
-            x,y = xs[i], ys[i]
+            x,y = int(xs[i]), int(ys[i])
             # post process
             post_processed = __proc_np_hv(blb_raw,h_dir_raw,v_dir_raw)
             n_inflam = get_n_inflam(post_processed,pred_tp)

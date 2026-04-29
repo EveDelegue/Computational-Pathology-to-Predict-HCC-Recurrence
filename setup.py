@@ -16,7 +16,8 @@ setup(
     install_requires=[
         "openpyxl",
         "tiatoolbox==2.0.1",
-        "openslide-bin"
+        "openslide-bin",
+        "termcolor"
     ],
     include_package_data=True,
     python_requires=">=3.8",

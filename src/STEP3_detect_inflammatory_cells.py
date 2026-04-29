@@ -14,7 +14,7 @@ print("running on", device)
 def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--slide_name", type=str,default='data/patches_bis/93A_PB')
-    parser.add_argument("--batch_size", type=int, default=128)
+    parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--verbose",type=bool,default=True)
     args = parser.parse_args()
     return args
@@ -32,6 +32,7 @@ def main():
     vis_scale = config["patching"]["vis_scale"]
     patches_dir = config["paths"]["pth_to_patches_bis"]
     coords_checkpoints = config["paths"]["pth_to_coords_bis"]
+    pth_to_inflams_dats = config["paths"]["pth_to_inflams_dats"]
     inflams_checkpoints = config["paths"]["pth_to_inflams_ckpts"]
     inflams_wsis_results = config["paths"]["pth_to_inflams_wsis"]
   
@@ -66,6 +67,7 @@ def main():
         with torch.no_grad():  # dont compute gradient
             # inference
             raw_results = inference(dataloader,net)
+            torch.save(raw_results,os.path.join(pth_to_inflams_dats,f'{slide_name}_raw.pt'))
         
         # post processing
         
