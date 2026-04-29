@@ -43,6 +43,7 @@ def main():
     patch_size_dict = config["patching"]["patch_size_dict"]
     mpp_dict = config["patching"]["mpp_dict"]
     if (hospital_name not in patch_size_dict.keys()) or (hospital_name not in mpp_dict.keys()):
+        print(sn)
         raise KeyError(f"no resolution defined for this hospital : {hospital_name}. Check that the hospital's name in the config file at mpp and patch_size is the same as in the data folder.")
 
     patch_size = step = patch_size_dict[hospital_name]
