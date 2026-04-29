@@ -27,6 +27,7 @@ def main():
     with open("config.yaml", "r") as f:
         config = yaml.safe_load(f)
 
+    # load PB patch size
     patch_size = config["patching"]["patch_size_dict"]["PB"]
     colors = {
         0: config["visualization"]["colors"]["healthy"],
@@ -34,17 +35,12 @@ def main():
         2: config["visualization"]["colors"]["pej"],
     }
 
+    # load parameters
     vis_scale = config["patching"]["vis_scale"]
     step = int(vis_scale * patch_size)
     tumor_checkpoints =  config["paths"]["pth_to_tumor_ckpts"]
 
-
-    colors_NT_NP_P = {
-        0: np.array(healthy_color) / 255,
-        1: np.array(non_pej_color) / 255,
-        2: np.array(pej_color) / 255,
-    }
-
+    # create a dataframe
     cols = [
         "lame",
         "#NT",
@@ -60,29 +56,27 @@ def main():
     ]
 
     df = pd.DataFrame(columns=cols)
+
+    # one row for each slide
     df["lame"] = [slide_name.split("_")[0] for slide_name in os.listdir(tumor_checkpoints)]
     slides = sorted(os.listdir(tumor_checkpoints))
     for slide_name_0 in slides:
         slide_name = slide_name_0.split("_")[0]
         hospital = slide_name_0.split("_")[1]
-        patch_size = 1152
-        if len(slide_name) > 4:
-            n = int(slide_name[:3])
-            if 110 < n <= 160:
-                patch_size = 626
-            elif 160 < n < 213 or 223 <= n < 253:
-                patch_size = 1094
+        patch_size = config["patching"]["patch_size_dict"][hospital]
+
+        # open tumor checkpoint
         with open(
             f"{tumor_checkpoints}/{slide_name}_{hospital}_preds_probas_checkpoint.pt", "rb"
         ) as handle:
-            tumor_data = torch.load(handle)
+            tumor_data = torch.load(handle,weights_only=False)
         y_har = tumor_data["arith_mean_preds"]
 
         with open(
             f"checkpoints/coords_checkpoints/{slide_name}_{hospital}_coords_checkpoint.pt",
             "rb",
         ) as handle:
-            coords = torch.load(handle)
+            coords = torch.load(handle,weights_only=False)
 
         coords_x, coords_y = [], []
         for patch in os.listdir(f"data/patches/{slide_name}_{hospital}"):
@@ -95,25 +89,34 @@ def main():
         coords_x = np.array(coords_x) * vis_scale - x_start
         coords_y = np.array(coords_y) * vis_scale - y_start
 
+        # generate a tumor map
         image = gen_image_from_coords(coords_x, coords_y, y_har, step, colors)
         masked_image_rd, masked_image_yl, masked_image_gr = get_RdYlGr_masks(image)
+        # get the largest connected area
+        # for non pejoratif
         (_, non_pej_area) = get_largest_connected_area(
             masked_image_yl, non_pej_color
         )
+        # for pejoratif
         (_, pej_area) = get_largest_connected_area(masked_image_rd, pej_color)
+        # for healthy
         (_, healthy_area) = get_largest_connected_area(
             masked_image_gr, healthy_color
         )
+
         N = image.shape[0] * image.shape[1]
         NonWhite_image = [
             tuple(pixel)
             for pixel in image.reshape(N, 3)
             if (pixel != (255, 255, 255)).any()
         ]
+        # count surfaces where it is in the largest connected area
         count = [
             (dict(Counter(NonWhite_image))[e] if e in dict(Counter(NonWhite_image)) else 0)
             for e in color2class
         ]
+
+        # put in the table
         df.loc[df["lame"] == slide_name] = (
             [slide_name]
             + count
@@ -122,7 +125,10 @@ def main():
             + [real_w, real_h, patch_size]
         )
 
+        # compute proportions
         df["%P"] = df["#P"] / (df["#NP"] + df["#P"])
+
+    # normalise the largest connected tumor areas
     df["NP_CntArea_norm"] = (df["NP_CntArea"] * df["patch_size"] ** 2) / (
         df["slide_w"] * df["slide_h"]
     )
@@ -130,10 +136,11 @@ def main():
         df["slide_w"] * df["slide_h"]
     )
     df["patient"] = df["lame"].apply(lambda x: x[:-1]).astype(int)
+    # add final features to the table
     final_features = ["patient", "lame", "%P", "P_CntArea_norm", "NP_CntArea_norm"]
     df = df[final_features]
-    df.head(10)
 
+    # create new dataframe
     df_max = pd.DataFrame(
         index=df["patient"].unique(),
         columns=[
@@ -142,7 +149,9 @@ def main():
             "P_CntArea_norm_max",
         ],
     )
+    # add patients
     df_max["patient"] = df["patient"].unique()
+    # compute max of %P and P_CntArea_norm
     for patient in df["patient"].unique():
         df_max.loc[df_max["patient"] == patient] = [patient] + list(
             df.loc[df["patient"] == patient][["%P", "P_CntArea_norm"]].max()
@@ -151,11 +160,14 @@ def main():
         ["%P_max", "P_CntArea_norm_max"]
     ].astype("float")
 
+    # new dataframe
     df_mean = pd.DataFrame(
         index=df["patient"].unique(),
         columns=["patient", "%P", "NP_CntArea_norm", "P_CntArea_norm"],
     )
+    # add patients
     df_mean["patient"] = df["patient"].unique()
+    # compute mean of %P and areas
     for patient in df["patient"].unique():
         df_mean.loc[df_mean["patient"] == patient] = [patient] + list(
             df.loc[df["patient"] == patient][
@@ -166,7 +178,7 @@ def main():
         ["%P", "NP_CntArea_norm", "P_CntArea_norm"]
     ].astype("float")
 
-
+    # create another table by merging the two
     df_ai_final = pd.merge(
         df_mean,
         df_max,
@@ -174,8 +186,7 @@ def main():
         how="inner",
     )
 
-    df_ai_final.head()
-
+    # save to csv
     df_ai_final.to_csv("data/tabs/final_tumor_features.csv", index=False)
 
 if __name__ == "__main__":
