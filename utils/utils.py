@@ -242,6 +242,13 @@ def generate_patches_from_wsi_2(
         print(slide_name, "done!")
 
 
+def draw_contours(binary:np.ndarray,image:np.ndarray,color:tuple=(255,0,0),thickness:int=3)->np.ndarray:
+    """returns an image with contours of the binary image drawn"""
+    new_image = image.copy()
+    contours,_ = cv2.findContours(binary, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    cv2.drawContours(new_image, contours, -1, color, thickness)
+    return new_image
+
 def generate_patches_from_wsi(
     slide_name,
     path_to_wsi,
