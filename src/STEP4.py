@@ -75,109 +75,114 @@ def main():
     verbose = args.verbose
     slide_name = args.slide_name.split(os.path.sep)[-1] #ex : 93A_PB
 
-    hospital = slide_name.split('_')[-1] 
-    mpp_dict = config["patching"]["mpp_dict"]
-    if hospital not in mpp_dict.keys():
-        raise KeyError(f"no resolution defined for this hospital : {hospital}. Check that the hospital's name in the config file is the same as in the data folder.")
-    mpp = mpp_dict[hospital]
-    ref_mpp = mpp_dict[config["patching"]["ref_hospital"]]
+    if not os.path.exists(
+        f"{save_dir}/{slide_name}_nucleus_features.csv"
+    ):
 
-    # load tumor checkpoints
-    chkpt_tumor = torch.load(f"{tumor_checkpoints}/{slide_name}_preds_probas_checkpoint.pt",weights_only=False)
-    # load coordinates
-    chkpt_coords = torch.load(
-        f"{coords_checkpoints}/{slide_name}_coords_checkpoint.pt",weights_only=False
-    )
-    
-    coords_x, coords_y = [], []
-    for patch in os.listdir(f"{patches_path}/{slide_name}"):
-        _, _, x, _, y = patch[:-4].split("_")
-        coords_x.append(int(x))
-        coords_y.append(int(y))
+        hospital = slide_name.split('_')[-1] 
+        mpp_dict = config["patching"]["mpp_dict"]
+        if hospital not in mpp_dict.keys():
+            raise KeyError(f"no resolution defined for this hospital : {hospital}. Check that the hospital's name in the config file is the same as in the data folder.")
+        mpp = mpp_dict[hospital]
+        ref_mpp = mpp_dict[config["patching"]["ref_hospital"]]
 
-    # init pga algorithm
-    Wgt = -np.log(np.array([hemato_1, eosin, safran, hemato_2]).T / 255)
-    pga = PGA(Wgt, device=device)
-
-    # load tumor slides
-    y_har_preds = chkpt_tumor["har_mean_preds"]
-    y_harmonic = y_har_preds.numpy()
-    
-    all_x, all_y, median_areas, mean_areas, nucleocytos, densities, anisos = (
-        [],
-        [],
-        [],
-        [],
-        [],
-        [],
-        []
-    )
-
-    t0 = time.time()
-    # stain separation v2 using parallelization
-    ctx = multiprocessing.get_context("spawn")
-    pool = ctx.Pool(multiprocessing.cpu_count()//2)
-
-    # Prepare arguments for each patch
-    patch_args = [
-        (
-            j,
-            coords_x,
-            coords_y,
-            y_harmonic,
-            patches_path,
-            slide_name,
-            Wgt,
-            Lambda,
-            poids,
-            kernel_size,
-            verbose and (j%1000 == 0),
-            path_to_verbose,
-            mpp,
-            ref_mpp,
-            device
+        # load tumor checkpoints
+        chkpt_tumor = torch.load(f"{tumor_checkpoints}/{slide_name}_preds_probas_checkpoint.pt",weights_only=False)
+        # load coordinates
+        chkpt_coords = torch.load(
+            f"{coords_checkpoints}/{slide_name}_coords_checkpoint.pt",weights_only=False
         )
-        for j in range(len(y_har_preds))
-    ]
-    # run the multiprocess 
-    out1 = pool.map(process_patch, patch_args)
-    # close the multiprocessing pool
-    pool.close()
-    # wait for it to be closed
-    pool.join()
-    
-    # Process results
-    for result in out1:
-        if result is not None:
-            x, y, density, mean_area, median_area, aniso, nucyto_idx = result
-            all_x.append(x)
-            all_y.append(y)
-            densities.append(density)
-            mean_areas.append(mean_area)
-            median_areas.append(median_area)
-            anisos.append(aniso)
-            nucleocytos.append(nucyto_idx)
-    t1 = time.time()
-    print(f'time processing : {t1-t0}')
+        
+        coords_x, coords_y = [], []
+        for patch in os.listdir(f"{patches_path}/{slide_name}"):
+            _, _, x, _, y = patch[:-4].split("_")
+            coords_x.append(int(x))
+            coords_y.append(int(y))
 
-    [x_start, y_start, _, _] = chkpt_coords["xy_start_end"]
-    coords_x = np.array(coords_x) * vis_scale - x_start
-    coords_y = np.array(coords_y) * vis_scale - y_start
+        # init pga algorithm
+        Wgt = -np.log(np.array([hemato_1, eosin, safran, hemato_2]).T / 255)
+        pga = PGA(Wgt, device=device)
 
-    df_features = pd.DataFrame(
-        {
-            "x": all_x,
-            "y": all_y,
-            "density": densities,
-            "median nucleus area": median_areas,
-            "mean nucleus area": mean_areas,
-            "anisocaryose": anisos,
-            "nucleocyto index": nucleocytos,
-        }
-    )
-    df_features.to_csv(
-        f"{save_dir}/{slide_name}_nucleus_features.csv", index=False
-    )
+        # load tumor slides
+        y_har_preds = chkpt_tumor["har_mean_preds"]
+        y_harmonic = y_har_preds.numpy()
+        
+        all_x, all_y, median_areas, mean_areas, nucleocytos, densities, anisos = (
+            [],
+            [],
+            [],
+            [],
+            [],
+            [],
+            []
+        )
 
+        t0 = time.time()
+        # stain separation v2 using parallelization
+        ctx = multiprocessing.get_context("spawn")
+        pool = ctx.Pool(multiprocessing.cpu_count()//2)
+
+        # Prepare arguments for each patch
+        patch_args = [
+            (
+                j,
+                coords_x,
+                coords_y,
+                y_harmonic,
+                patches_path,
+                slide_name,
+                Wgt,
+                Lambda,
+                poids,
+                kernel_size,
+                verbose and (j%1000 == 0),
+                path_to_verbose,
+                mpp,
+                ref_mpp,
+                device
+            )
+            for j in range(len(y_har_preds))
+        ]
+        # run the multiprocess 
+        out1 = pool.map(process_patch, patch_args)
+        # close the multiprocessing pool
+        pool.close()
+        # wait for it to be closed
+        pool.join()
+        
+        # Process results
+        for result in out1:
+            if result is not None:
+                x, y, density, mean_area, median_area, aniso, nucyto_idx = result
+                all_x.append(x)
+                all_y.append(y)
+                densities.append(density)
+                mean_areas.append(mean_area)
+                median_areas.append(median_area)
+                anisos.append(aniso)
+                nucleocytos.append(nucyto_idx)
+        t1 = time.time()
+        print(f'time processing : {t1-t0}')
+
+        [x_start, y_start, _, _] = chkpt_coords["xy_start_end"]
+        coords_x = np.array(coords_x) * vis_scale - x_start
+        coords_y = np.array(coords_y) * vis_scale - y_start
+
+        df_features = pd.DataFrame(
+            {
+                "x": all_x,
+                "y": all_y,
+                "density": densities,
+                "median nucleus area": median_areas,
+                "mean nucleus area": mean_areas,
+                "anisocaryose": anisos,
+                "nucleocyto index": nucleocytos,
+            }
+        )
+        df_features.to_csv(
+            f"{save_dir}/{slide_name}_nucleus_features.csv", index=False
+        )
+    else:
+        print(f"{save_dir}/{slide_name}_nucleus_features.csv already exists")
 if __name__ == "__main__":
     main()

@@ -3,7 +3,7 @@ results
 brouillons
 checkpoints
 util_nbks
-data
+data*
 __pycache__
 .vscode
 .ipynb_checkpoints
