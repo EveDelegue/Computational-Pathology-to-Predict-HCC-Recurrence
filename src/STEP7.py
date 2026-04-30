@@ -53,6 +53,7 @@ def main():
         "slide_w",
         "slide_h",
         "patch_size",
+        "%P"
     ]
 
     df = pd.DataFrame(columns=cols)
@@ -122,7 +123,7 @@ def main():
             + count
             + [len(NonWhite_image)]
             + [healthy_area, non_pej_area, pej_area]
-            + [real_w, real_h, patch_size]
+            + [real_w, real_h, patch_size] + [None    ]
         )
 
         # compute proportions
