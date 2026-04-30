@@ -43,6 +43,8 @@ for wsi in $wsi_path; do
             python src/STEP3_detect_inflammatory_cells.py --slide_name "$patched_path_bis" --verbose True
             # deleting the patches bis folder
             rm -r $patched_path_bis
+            # deleting the inflam dats folder
+            rm -r checkpoints/inflam_dats/${slide_name}_${hospital}_raw.pt
         done
         else 
             echo "$patient empty"

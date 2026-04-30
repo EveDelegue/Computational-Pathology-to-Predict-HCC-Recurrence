@@ -50,7 +50,7 @@ def main():
 
     if not(task=='inflam'):
         # generate patches for tumor detection
-        if slide_name.split(os.path.sep)[-1].split(".")[0]+'_' + hospital_name not in os.listdir(patches_path): # ex : si 93A_PB pas déjà parmis les patches
+        if slide_name.split(os.path.sep)[-1].split(".")[0]+'_' + hospital_name+'_coords_checkpoint.pt' not in os.listdir(coords_path): # ex : si 93A_PB pas déjà parmis les patches
             generate_patches_from_wsi(
                 slide_name,
                 path_to_wsi=path_to_wsis,
@@ -71,7 +71,7 @@ def main():
     
     if not(task=='tumor'):
         # generate patches for inflammatory cells segmentation
-        if slide_name.split(os.path.sep)[-1].split(".")[0]+'_' + hospital_name not in os.listdir(patches_path_bis): # ex : si 93A_PB pas déjà parmis les patches
+        if slide_name.split(os.path.sep)[-1].split(".")[0]+'_' + hospital_name+'_coords_checkpoint.pt' not in os.listdir(coords_path_bis): # ex : si 93A_PB pas déjà parmis les patches
             generate_patches_from_wsi_2(
                 slide_name,
                 path_to_wsi=path_to_wsis,
