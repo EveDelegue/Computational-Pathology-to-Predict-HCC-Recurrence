@@ -79,12 +79,8 @@ def main():
         ) as handle:
             coords = torch.load(handle,weights_only=False)
 
-        coords_x, coords_y = [], []
-        for patch in os.listdir(f"data/patches/{slide_name}_{hospital}"):
-            _, _, x, _, y = patch[:-4].split("_")
-            coords_x.append(int(x))
-            coords_y.append(int(y))
-        coords["coords_x"], coords["coords_y"] = coords_x, coords_y
+        coords_x, coords_y = tumor_data["coords_x"], tumor_data["coords_y"]
+        
         [x_start, y_start, _, _] = coords["xy_start_end"]
         [_, _, real_w, real_h] = coords["xywh_real"]
         coords_x = np.array(coords_x) * vis_scale - x_start
