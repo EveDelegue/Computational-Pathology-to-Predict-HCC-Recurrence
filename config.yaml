@@ -14,6 +14,7 @@ patching:
   enlarge: 5
   ref_hospital: 'PB'
   tia_patch_size: 256
+  tia_step: 132
 
 # Visualization parameters
 visualization:

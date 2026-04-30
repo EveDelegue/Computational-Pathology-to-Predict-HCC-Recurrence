@@ -8,7 +8,6 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--slide_name", type=str)
     parser.add_argument("--verbose",type=bool,default=True)
-    parser.add_argument("--tia_patch_size",type=int,default=256)
     parser.add_argument("--task", type=str,default='all',choices=['all','inflam','tumor'])
     args = parser.parse_args()
     return args
@@ -29,13 +28,13 @@ def main():
     patches_path_bis = config["paths"]["pth_to_patches_bis"]
     coords_path_bis = config["paths"]["pth_to_coords_bis"]
     overview_path_bis = config["paths"]["overview_path_bis"]
-
+    tia_patch_size = config["patching"]["tia_patch_size"]
+    tia_step = config["patching"]["tia_patch_size"]
 
     args = parse_arguments()
     verbose = args.verbose
     task = args.task
     sn = args.slide_name # ex : data/WSIs/PB/Patient_93/93A.mrxs
-    tia_patch_size = tia_step = args.tia_patch_size
     path_to_wsis = sn.split("Patient")[0] # chemin avant la lame ex : data/WSIs/PB/
     hospital_name = sn.split(os.path.sep)[-3] # nom du dossier contenant les patients ex : PB
     slide_name = "Patient_" + sn.split("_")[-1] #Patient_ + numéro après le nom du patient ex : Patient_93/93A.mrxs

@@ -36,13 +36,13 @@ for wsi in $wsi_path; do
             echo "detecting nucleus from $patched_path"
             python src/STEP4.py --slide_name "$patched_path" --verbose True
             # deleting the patches folder
-            #rm -r $patched_path
+            rm -r $patched_path
             # run inflammation detection
             patched_path_bis="data/patches_bis/${slide_name}_$hospital"
             echo "detecting inflammatory cells on $patched_path_bis"
             python src/STEP3_detect_inflammatory_cells.py --slide_name "$patched_path_bis" --verbose True
             # deleting the patches bis folder
-            #rm -r $patched_path_bis
+            rm -r $patched_path_bis
         done
         else 
             echo "$patient empty"
