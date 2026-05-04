@@ -640,8 +640,8 @@ def load_net(device):
     net = torch.nn.DataParallel(net)
     return net.to(device)
 
-def inference(dataloader,net):
-        raw_dict = {}
+def inference(dataloader,net,save_dir):
+        os.makedirs(save_dir,exist_ok=True)
         for i,(imgs,xs,ys) in tqdm(enumerate(dataloader),total=len(dataloader)):
             pred_dict = net(imgs)
             pred_dict = OrderedDict(
@@ -662,8 +662,8 @@ def inference(dataloader,net):
             }
             if net.module.nr_types is not None:
                 result_dict["raw"]["pred_tp"] = pred_dict["tp"].cpu().numpy()
-            raw_dict[i] = result_dict
-        return raw_dict
+            torch.save(result_dict,os.path.join(save_dir,f'batch_{i}.pt'))
+        return 0
 
 # post processing
 def get_bounding_box(img):
@@ -818,10 +818,13 @@ def get_n_inflam(post_processed, pred_tp):
     return n_inflam
 
 
-def post_process(raw): 
+def post_process(save_dir): 
     num_nucleus, coords_x, coords_y = [],[],[]
+    list_batch_files = os.listdir(save_dir)
     # for each batch
-    for _,batch_result in tqdm(raw.items()):
+    for batch_file in tqdm(list_batch_files):
+        # load batch data
+        batch_result = torch.load(os.path.join(save_dir,batch_file),weights_only=False) 
         prob_np,pred_hv,pred_tp,xs,ys = batch_result["raw"]['prob_np'], batch_result["raw"]['pred_hv'], batch_result["raw"]['pred_tp'], batch_result["raw"]['xs'], batch_result["raw"]['ys'] 
         # for each sample from a batch
         for i in range(prob_np.shape[0]):

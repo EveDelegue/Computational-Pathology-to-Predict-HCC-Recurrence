@@ -45,36 +45,24 @@ def main():
             weights_only=False,
         )
 
-        coords_x, coords_y = [], []
-        for patch in os.listdir(f"{patches_dir}/{slide_name}"):
-            _, _, x, _, y = patch[:-4].split("_")
-            coords_x.append(int(x))
-            coords_y.append(int(y))
-
         scaled_slide = coords["scaled_slide"]
         [x_start, y_start, _, _] = coords["xy_start_end"]
-        coords_x = np.array(coords_x) * vis_scale - x_start
-        coords_y = np.array(coords_y) * vis_scale - y_start
 
         ###### inflam detection
-        if not os.path.exists(os.path.join(pth_to_inflams_dats,f'{slide_name}_raw.pt')):
-            # load the net
-            net = load_net(device=device)
+        # load the net
+        net = load_net(device=device)
 
-            # make dataloader
-            dataset = PatchDataset(os.path.join(patches_dir,slide_name))
-            dataloader = DataLoader(dataset=dataset,batch_size=batch_size)
+        # make dataloader
+        '''dataset = PatchDataset(os.path.join(patches_dir,slide_name))
+        dataloader = DataLoader(dataset=dataset,batch_size=batch_size)
 
-            with torch.no_grad():  # dont compute gradient
-                # inference
-                raw_results = inference(dataloader,net)
-                torch.save(raw_results,os.path.join(pth_to_inflams_dats,f'{slide_name}_raw.pt'))
-        else:
-            raw_results=torch.load(os.path.join(pth_to_inflams_dats,f'{slide_name}_raw.pt'),weights_only=False)
-        
+        with torch.no_grad():  # dont compute gradient
+            # inference
+            inference(dataloader,net,os.path.join(pth_to_inflams_dats,slide_name))
+        '''
         # post processing
         
-        num_nucleus,coords_x,coords_y = post_process(raw_results)
+        num_nucleus,coords_x,coords_y = post_process(os.path.join(pth_to_inflams_dats,slide_name))
 
         inf_nucleus_sorted, coords_X, coords_Y = zip(
             *sorted(zip(num_nucleus, coords_x, coords_y), key=lambda x: x[0])

@@ -44,7 +44,7 @@ for wsi in $wsi_path; do
             # deleting the patches bis folder
             rm -r $patched_path_bis
             # deleting the inflam dats folder
-            rm -r checkpoints/inflam_dats/${slide_name}_${hospital}_raw.pt
+            rm -r checkpoints/inflam_dats/${slide_name}_${hospital}
         done
         else 
             echo "$patient empty"
