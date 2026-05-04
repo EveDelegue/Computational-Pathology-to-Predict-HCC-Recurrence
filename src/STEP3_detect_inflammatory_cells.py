@@ -13,7 +13,7 @@ print("running on", device)
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--slide_name", type=str,default='data/patches_bis/93A_PB')
+    parser.add_argument("--slide_name", type=str,default='data/patches_bis/79A_PB')
     parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--verbose",type=bool,default=True)
     args = parser.parse_args()
@@ -57,17 +57,20 @@ def main():
         coords_y = np.array(coords_y) * vis_scale - y_start
 
         ###### inflam detection
-        # load the net
-        net = load_net(device=device)
+        if not os.path.exists(os.path.join(pth_to_inflams_dats,f'{slide_name}_raw.pt')):
+            # load the net
+            net = load_net(device=device)
 
-        # make dataloader
-        dataset = PatchDataset(os.path.join(patches_dir,slide_name))
-        dataloader = DataLoader(dataset=dataset,batch_size=batch_size)
+            # make dataloader
+            dataset = PatchDataset(os.path.join(patches_dir,slide_name))
+            dataloader = DataLoader(dataset=dataset,batch_size=batch_size)
 
-        with torch.no_grad():  # dont compute gradient
-            # inference
-            raw_results = inference(dataloader,net)
-            torch.save(raw_results,os.path.join(pth_to_inflams_dats,f'{slide_name}_raw.pt'))
+            with torch.no_grad():  # dont compute gradient
+                # inference
+                raw_results = inference(dataloader,net)
+                torch.save(raw_results,os.path.join(pth_to_inflams_dats,f'{slide_name}_raw.pt'))
+        else:
+            raw_results=torch.load(os.path.join(pth_to_inflams_dats,f'{slide_name}_raw.pt'),weights_only=False)
         
         # post processing
         
