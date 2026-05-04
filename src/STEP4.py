@@ -120,7 +120,7 @@ def main():
         t0 = time.time()
         # stain separation v2 using parallelization
         ctx = multiprocessing.get_context("spawn")
-        pool = ctx.Pool(multiprocessing.cpu_count()//2)
+        pool = ctx.Pool(min(multiprocessing.cpu_count()//4,24))
 
         # Prepare arguments for each patch
         patch_args = [
