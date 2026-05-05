@@ -53,13 +53,13 @@ def main():
         net = load_net(device=device)
 
         # make dataloader
-        '''dataset = PatchDataset(os.path.join(patches_dir,slide_name))
+        dataset = PatchDataset(os.path.join(patches_dir,slide_name))
         dataloader = DataLoader(dataset=dataset,batch_size=batch_size)
 
         with torch.no_grad():  # dont compute gradient
             # inference
             inference(dataloader,net,os.path.join(pth_to_inflams_dats,slide_name))
-        '''
+        
         # post processing
         
         num_nucleus,coords_x,coords_y = post_process(os.path.join(pth_to_inflams_dats,slide_name))
