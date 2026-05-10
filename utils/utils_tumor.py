@@ -179,6 +179,8 @@ def gen_multiscale_patches(
             patch = color_transfer(target=patch_og, reference=reference)
             os.makedirs(f"{patches_dir}/{slide_name}",exist_ok=True)
             plt.imsave(f"{patches_dir}/{slide_name}/{patch_name}",patch)
+        else:
+            patch = patch_og
         res3 = patch.shape[0]  # 1152 626 1094
         res2 = int(res3 / 1.5)
         res1 = int(res2 / 1.5)  # 512 278 486

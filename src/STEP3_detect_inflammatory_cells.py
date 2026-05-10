@@ -49,16 +49,17 @@ def main():
         [x_start, y_start, _, _] = coords["xy_start_end"]
 
         ###### inflam detection
-        # load the net
-        net = load_net(device=device)
+        if not os.path.exists(os.path.join(pth_to_inflams_dats,slide_name)):
+            # load the net
+            net = load_net(device=device)
 
-        # make dataloader
-        dataset = PatchDataset(os.path.join(patches_dir,slide_name))
-        dataloader = DataLoader(dataset=dataset,batch_size=batch_size)
+            # make dataloader
+            dataset = PatchDataset(os.path.join(patches_dir,slide_name))
+            dataloader = DataLoader(dataset=dataset,batch_size=batch_size)
 
-        with torch.no_grad():  # dont compute gradient
-            # inference
-            inference(dataloader,net,os.path.join(pth_to_inflams_dats,slide_name))
+            with torch.no_grad():  # dont compute gradient
+                # inference
+                inference(dataloader,net,os.path.join(pth_to_inflams_dats,slide_name))
         
         # post processing
         
