@@ -16,6 +16,8 @@ setup(
     install_requires=[
         "openpyxl",
         "torch",
+        "scikit-image",
+        "joblib",
         "torchvision",
         "opencv-python-headless",
         "pandas",
