@@ -15,8 +15,15 @@ setup(
     # --- Dependencies ---
     install_requires=[
         "openpyxl",
-        "tiatoolbox==2.0.1",
+        "torch",
+        "torchvision",
+        "opencv-python-headless",
+        "pandas",
+        "PYyaml",
+        "matplotlib",
+        "tqdm",
         "openslide-bin",
+        "openslide-python",
         "termcolor"
     ],
     include_package_data=True,
