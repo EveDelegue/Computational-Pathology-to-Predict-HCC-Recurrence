@@ -26,7 +26,9 @@ setup(
         "tqdm",
         "openslide-bin",
         "openslide-python",
-        "termcolor"
+        "termcolor",
+        "seaborn","scikit-learn","catboost",
+        "xgboost"
     ],
     include_package_data=True,
     python_requires=">=3.8",
