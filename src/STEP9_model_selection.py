@@ -5,11 +5,15 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import KFold, GridSearchCV,cross_val_score
 from sklearn.svm import SVC
+from sklearn.linear_model import ElasticNet, RidgeClassifier
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier, AdaBoostClassifier
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.preprocessing import PolynomialFeatures
 from catboost import CatBoostClassifier
+from sklearn.pipeline import Pipeline
 from xgboost import XGBClassifier
 from sklearn.neural_network import MLPClassifier
+from catboost import CatBoostClassifier, Pool
 from sklearn.preprocessing import RobustScaler
 from sklearn.metrics import (
     accuracy_score,
@@ -101,51 +105,80 @@ param_grid = [
   {'C': [0.5,1, 5], 'gamma': ['scale','auto'], 'kernel': ['rbf','sigmoid']},
  ]
 
-model_list.append({'model':model_1,'params':param_grid})
+#model_list.append({'model':model_1,'params':param_grid})
+
+# catboost
+model = CatBoostClassifier(verbose=False)
+
+param_grid=[{'iterations':[10,100],'depth':[2,5,10],'loss_function':["Logloss","CrossEntropy"]}]
+
+#model_list.append({'model':model,'params':param_grid})
 
 # random decision tree
 model_1 = DecisionTreeClassifier()
 
 param_grid=[{'criterion':["gini","entropy","log_loss"]}]
 
-model_list.append({'model':model_1,'params':param_grid})
+#model_list.append({'model':model_1,'params':param_grid})
 
 # random forest
 model_1 = RandomForestClassifier()
 
 param_grid=[{'n_estimators':[10,20,50,100]}]
 
-model_list.append({'model':model_1,'params':param_grid})
+#model_list.append({'model':model_1,'params':param_grid})
 
 # gradient boosting
 model_1 = GradientBoostingClassifier()
 
 param_grid=[{'n_estimators':[10,50,100],"learning_rate":[0.1,0.2,0.01],"subsample":[0.5,1]}]
 
-model_list.append({'model':model_1,'params':param_grid})
+#model_list.append({'model':model_1,'params':param_grid})
 
 # AdaBoost
 model_1 = AdaBoostClassifier()
 
 param_grid=[{'n_estimators':[10,50,100],"learning_rate":[0.1,0.2,0.01]}]
 
-model_list.append({'model':model_1,'params':param_grid})
+#model_list.append({'model':model_1,'params':param_grid})
 
 # xgb classifier
-model_1 = XGBClassifier()
+model_1 = XGBClassifier(verbosity=0)
 
 param_grid=[{'learning_rate':[0.1,0.3],'subsample':[0.5,1]}]
 
-model_list.append({'model':model_1,'params':param_grid})
+#model_list.append({'model':model_1,'params':param_grid})
 
-# 
+# mlp
 model_1 = MLPClassifier() 
 
 param_grid=[{'hidden_layer_sizes':[(),(10,),(100,)],'activation':['identity','tanh','relu','logistic']}]
 
-model_list.append({'model':model_1,'params':param_grid})
+#model_list.append({'model':model_1,'params':param_grid})
+
+# ElasticNet
+
+model_1 = ElasticNet() 
+
+param_grid=[{'alpha':[0.1,1,10],'l1_ratio':[0.5,1]}]
+
+#model_list.append({'model':model_1,'params':param_grid})
+
+# Ridge classifier
+
+model_1 = RidgeClassifier() 
+
+param_grid=[{'alpha':[0.1,1,10]}]
+
+#model_list.append({'model':model_1,'params':param_grid})
+
+# Ridge classifier with poly features
+model = Pipeline([('preprocess', PolynomialFeatures()), ('classifier',RidgeClassifier())])
 
 
+param_grid=[{'preprocess__degree':[2,3,4],'classifier__alpha':[0.1,1,10]}]
+
+model_list.append({'model':model,'params':param_grid})
 
 
 for model in model_list:

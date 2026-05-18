@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from collections import Counter
 import pandas as pd
+import argparse
 from matplotlib.colors import Normalize
 import matplotlib.cm as cm
 from utils.utils_tumor import (
@@ -16,7 +17,16 @@ from utils.utils_tumor import (
     healthy_color,
 )
 
+def parse_arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--seuil_nb_lames",type=int,default=1000)
+    args = parser.parse_args()
+    return args
+
 def main():
+    # parse arguments
+    args = parse_arguments()
+    seuil_lames = args.seuil_nb_lames
 
     color2class = {
         tuple(healthy_color): "healthy",
@@ -61,69 +71,79 @@ def main():
     # one row for each slide
     df["lame"] = [slide_name.split("_")[0] for slide_name in os.listdir(tumor_checkpoints)]
     slides = sorted(os.listdir(tumor_checkpoints))
+
+    patient_slide_counter = {}
     for slide_name_0 in slides:
         slide_name = slide_name_0.split("_")[0]
         hospital = slide_name_0.split("_")[1]
-        patch_size = config["patching"]["patch_size_dict"][hospital]
+        # count 1 slide for the patient
+        patient= slide_name[:-1]
+        if patient in patient_slide_counter.keys():
+            patient_slide_counter[patient] +=1
+        else:
+            patient_slide_counter[patient] = 1
 
-        # open tumor checkpoint
-        with open(
-            f"{tumor_checkpoints}/{slide_name}_{hospital}_preds_probas_checkpoint.pt", "rb"
-        ) as handle:
-            tumor_data = torch.load(handle,weights_only=False)
-        y_har = tumor_data["arith_mean_preds"]
+        if patient_slide_counter[patient]<seuil_lames:
+            patch_size = config["patching"]["patch_size_dict"][hospital]
 
-        with open(
-            f"checkpoints/coords_checkpoints/{slide_name}_{hospital}_coords_checkpoint.pt",
-            "rb",
-        ) as handle:
-            coords = torch.load(handle,weights_only=False)
+            # open tumor checkpoint
+            with open(
+                f"{tumor_checkpoints}/{slide_name}_{hospital}_preds_probas_checkpoint.pt", "rb"
+            ) as handle:
+                tumor_data = torch.load(handle,weights_only=False)
+            y_har = tumor_data["arith_mean_preds"]
 
-        coords_x, coords_y = tumor_data["coords_x"], tumor_data["coords_y"]
-        
-        [x_start, y_start, _, _] = coords["xy_start_end"]
-        [_, _, real_w, real_h] = coords["xywh_real"]
-        coords_x = np.array(coords_x) * vis_scale - x_start
-        coords_y = np.array(coords_y) * vis_scale - y_start
+            with open(
+                f"checkpoints/coords_checkpoints/{slide_name}_{hospital}_coords_checkpoint.pt",
+                "rb",
+            ) as handle:
+                coords = torch.load(handle,weights_only=False)
 
-        # generate a tumor map
-        image = gen_image_from_coords(coords_x, coords_y, y_har, step, colors)
-        masked_image_rd, masked_image_yl, masked_image_gr = get_RdYlGr_masks(image)
-        # get the largest connected area
-        # for non pejoratif
-        (_, non_pej_area) = get_largest_connected_area(
-            masked_image_yl, non_pej_color
-        )
-        # for pejoratif
-        (_, pej_area) = get_largest_connected_area(masked_image_rd, pej_color)
-        # for healthy
-        (_, healthy_area) = get_largest_connected_area(
-            masked_image_gr, healthy_color
-        )
+            coords_x, coords_y = tumor_data["coords_x"], tumor_data["coords_y"]
+            
+            [x_start, y_start, _, _] = coords["xy_start_end"]
+            [_, _, real_w, real_h] = coords["xywh_real"]
+            coords_x = np.array(coords_x) * vis_scale - x_start
+            coords_y = np.array(coords_y) * vis_scale - y_start
 
-        N = image.shape[0] * image.shape[1]
-        NonWhite_image = [
-            tuple(pixel)
-            for pixel in image.reshape(N, 3)
-            if (pixel != (255, 255, 255)).any()
-        ]
-        # count surfaces where it is in the largest connected area
-        count = [
-            (dict(Counter(NonWhite_image))[e] if e in dict(Counter(NonWhite_image)) else 0)
-            for e in color2class
-        ]
+            # generate a tumor map
+            image = gen_image_from_coords(coords_x, coords_y, y_har, step, colors)
+            masked_image_rd, masked_image_yl, masked_image_gr = get_RdYlGr_masks(image)
+            # get the largest connected area
+            # for non pejoratif
+            (_, non_pej_area) = get_largest_connected_area(
+                masked_image_yl, non_pej_color
+            )
+            # for pejoratif
+            (_, pej_area) = get_largest_connected_area(masked_image_rd, pej_color)
+            # for healthy
+            (_, healthy_area) = get_largest_connected_area(
+                masked_image_gr, healthy_color
+            )
 
-        # put in the table
-        df.loc[df["lame"] == slide_name] = (
-            [slide_name]
-            + count
-            + [len(NonWhite_image)]
-            + [healthy_area, non_pej_area, pej_area]
-            + [real_w, real_h, patch_size] + [None    ]
-        )
+            N = image.shape[0] * image.shape[1]
+            NonWhite_image = [
+                tuple(pixel)
+                for pixel in image.reshape(N, 3)
+                if (pixel != (255, 255, 255)).any()
+            ]
+            # count surfaces where it is in the largest connected area
+            count = [
+                (dict(Counter(NonWhite_image))[e] if e in dict(Counter(NonWhite_image)) else 0)
+                for e in color2class
+            ]
 
-        # compute proportions
-        df["%P"] = df["#P"] / (df["#NP"] + df["#P"])
+            # put in the table
+            df.loc[df["lame"] == slide_name] = (
+                [slide_name]
+                + count
+                + [len(NonWhite_image)]
+                + [healthy_area, non_pej_area, pej_area]
+                + [real_w, real_h, patch_size] + [None    ]
+            )
+
+            # compute proportions
+            df["%P"] = df["#P"] / (df["#NP"] + df["#P"])
 
     # normalise the largest connected tumor areas
     df["NP_CntArea_norm"] = (df["NP_CntArea"] * df["patch_size"] ** 2) / (
