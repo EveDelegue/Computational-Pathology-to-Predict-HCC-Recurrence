@@ -9,6 +9,7 @@ from  PIL import Image
 from matplotlib.colors import Normalize
 import matplotlib.cm as cm
 import argparse
+import tqdm
 from utils.utils_tumor import (
     gen_image_from_coords,
     gen_image_from_coords_bis,
@@ -58,12 +59,12 @@ def main():
     slides = os.listdir(inflams_checkpoints)
 
     # for each lame,
-    for slide in slides:
+    for slide in tqdm.tqdm(slides):
         slide_name = slide.split("_")[0]
         hospital = slide.split("_")[1]
         aspect_ratio = mpp_dict[hospital]/mpp_dict["PB"]
         # load the tumoral predictions
-        chkpt_coords = torch.load(f"{coords_checkpoints}/{slide_name}_{hospital}_coords_checkpoint.pt",weights_only=False)
+        #chkpt_coords = torch.load(f"{coords_checkpoints}/{slide_name}_{hospital}_coords_checkpoint.pt",weights_only=False)
         chkpt_tumor = torch.load(
             f"{tumor_checkpoints}/{slide_name}_{hospital}_preds_probas_checkpoint.pt",weights_only=False
         )
@@ -71,7 +72,7 @@ def main():
             f"{inflams_checkpoints}/{slide_name}_{hospital}_coords_inflams_checkpoint.pt",weights_only=False
         )
         scaled_slide = chkpt_tumor["scaled_slide"]
-        [x_start, y_start, _, _] = chkpt_coords["xy_start_end"]
+        [x_start, y_start, _, _] = chkpt_inflam["xy_start_end"]
 
         # new pd frame for tumor
         df_tumor = pd.DataFrame()
@@ -145,6 +146,7 @@ def main():
             plt.imshow((img_tum_res*image_inf),vmax=5)
             plt.title("sum")
             plt.savefig(inflams_verbose+'/'+slide.replace('_coords_inflams_checkpoint.pt','tum_inf.png'))
+            plt.close()
         
         # fill in the holes 
         size = 2 * int((19 /aspect_ratio)/2) + 1 # closest odd number to this 
@@ -222,18 +224,19 @@ def main():
             plt.title("final inflammation contour")
             plt.tight_layout()
             plt.savefig(inflams_verbose+'/'+slide.replace('_coords_inflams_checkpoint.pt','_inout.png'))
+            plt.close()
 
 
         
 
         # compute number of inflams in tumor
         idx_X, idx_Y = np.nonzero(final_inflam_tumor_image)
-        INFLAM_IN_ALL_T = final_inflam_tumor_image.sum() / len(idx_X)
+        INFLAM_IN_ALL_T = final_inflam_tumor_image.sum() / len(idx_X) if len(idx_X)!=0 else 0
         # print("inflam cells inside all tumor (mean per patch)", INFLAM_IN_ALL_T)
 
         # compute number of inflams inout tumor
         idx_X, idx_Y = np.nonzero(final_inout_tumor_image)
-        INFLAM_INOUT_T = final_inout_tumor_image.sum() / len(idx_X)
+        INFLAM_INOUT_T = final_inout_tumor_image.sum() / len(idx_X) if len(idx_X)!=0 else 0
         # print("inflam cells surrounding tumor (in & out) (mean per patch)", INFLAM_INOUT_T)
 
         # add to the table
