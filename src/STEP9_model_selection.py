@@ -30,7 +30,7 @@ from sklearn.calibration import calibration_curve
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--groups",type=list[int],default=[2])
+    parser.add_argument("--groups",type=list[int],default=[1,2,3,4])
     args = parser.parse_args()
     return args
 
@@ -43,41 +43,17 @@ random.seed(SEED)
 
 nb_classes = 2
 labels = ["Pas de Récidive", "Récidive"]
-ticksx = np.arange(nb_classes) + 0.5
-ticksy = np.arange(nb_classes) + 0.5
-
-
-##########################
-
-def compute_metrics(y_test, y_pred):
-    accuracy = accuracy_score(y_test, y_pred)
-    balanced_accuracy = balanced_accuracy_score(y_test, y_pred)
-    f1 = f1_score(y_test, y_pred, average="weighted")  # Use "weighted" for multiclass
-    PPV = precision_score(y_test, y_pred, average="weighted")
-    Sensitivity = recall_score(y_test, y_pred, average="weighted")
-    return accuracy, balanced_accuracy, f1, PPV, Sensitivity
-
-
-def getWrongPatients(yhat, ytrue, patients):
-    if len(np.where(yhat != ytrue)) != 0:
-        return patients[np.where(yhat != ytrue)]
-    else:
-        print("No Misclassified Patients.")
-        return np.array([0])
     
 ##########################################
 
 df = pd.read_excel("data/tabs/input_dataframe_prognosis.xlsx")
-df = df.sort_values(by="patient").drop("Nbre de lames", axis=1)
-
+df = df.sort_values(by="patient")
 
 ########################
 
-df_pb = df.loc[df["Hôpital"] =="PB"].drop("Hôpital", axis=1)
-df_hm = df.loc[df["Hôpital"] =="HM"].drop("Hôpital", axis=1)
-df_bj = df.loc[df["Hôpital"] =="BJ"].drop("Hôpital", axis=1)
-
-df_pb.shape, df_hm.shape, df_bj.shape
+df_pb = df.loc[df["Hôpital"] =="PB"]
+df_hm = df.loc[df["Hôpital"] =="HM"]
+df_bj = df.loc[df["Hôpital"] =="BJ"]
 
 ###################################
 
@@ -184,7 +160,7 @@ model_list.append({'model':model_1,'params':param_grid})
 
 model_1 = RidgeClassifier() 
 
-param_grid=[{'alpha':[0.1,1,10]}]
+param_grid=[{'alpha':[0.001,0.1,1,10]}]
 
 model_list.append({'model':model_1,'params':param_grid})
 
@@ -193,7 +169,7 @@ for model in model_list:
     inner_cv = KFold(n_splits=5,shuffle=True)
 
     new_model = Pipeline([('scaler','passthrough'),('preprocess','passthrough'),( 'classifier',model["model"]) ])
-    new_params = [{'classifier__'+k:v for k,v in parametres.items()}|{'scaler':[RobustScaler()]}|{'preprocess':[None,PolynomialFeatures()]} 
+    new_params = [{'classifier__'+k:v for k,v in parametres.items()}|{'scaler':[None,RobustScaler()]}|{'preprocess':[None,SplineTransformer()]} 
                   for parametres in model["params"]]
 
     grid_search = GridSearchCV(estimator=new_model,param_grid=new_params,cv=inner_cv)

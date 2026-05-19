@@ -12,7 +12,7 @@ from sklearn.svm import SVC
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--groups",type=list[int],default=[2])
+    parser.add_argument("--groups",type=list[int],default=[1,2,3,4])
     args = parser.parse_args()
     return args
 
@@ -37,7 +37,6 @@ df_pb = df.loc[df["Hôpital"] =="PB"].drop("Hôpital", axis=1)
 df_hm = df.loc[df["Hôpital"] =="HM"].drop("Hôpital", axis=1)
 df_bj = df.loc[df["Hôpital"] =="BJ"].drop("Hôpital", axis=1)
 
-df_pb.shape, df_hm.shape, df_bj.shape
 
 ###################################
 
