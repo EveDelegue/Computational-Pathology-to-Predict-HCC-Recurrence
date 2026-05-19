@@ -3,6 +3,7 @@ results
 brouillons
 checkpoints
 util_nbks
+catboost_info
 data*
 __pycache__
 .vscode
