@@ -11,14 +11,14 @@ def main():
     nuc_checkpoint = config["paths"]["pth_to_nuc_ckpts"]
     
     # create dataframe where each line is a slide
-    df = pd.DataFrame(columns=["lame"] + nuc_features)
+    df = pd.DataFrame(columns=["lame"] + nuc_features + ['nb_patch'])
     df["lame"] = [e.split("_")[0] for e in os.listdir(nuc_checkpoint)]
 
     # add the mean of the parameters
     for data_name in os.listdir(nuc_checkpoint):
         data = pd.read_csv(os.path.join(nuc_checkpoint,data_name))
         slide_name = data_name.split("_")[0]
-        df.loc[df["lame"] == slide_name] = [slide_name] + list(data[nuc_features].mean())
+        df.loc[df["lame"] == slide_name] = [slide_name] + list(data[nuc_features].sum()) + [len(data)]
 
     # add patient name
     df["patient"] = df["lame"].apply(lambda x: x[:-1]).astype(int)
@@ -33,8 +33,10 @@ def main():
 
     # add the mean of the parameters
     for patient in df["patient"].unique():
+        sum_features = df.loc[df["patient"] == patient][nuc_features].sum()
+        sum_patchs = df.loc[df["patient"] == patient]['nb_patch'].sum()
         df_nuclear.loc[df_nuclear["patient"] == patient] = [patient] + list(
-            df.loc[df["patient"] == patient][nuc_features].mean()
+            sum_features/sum_patchs
         )
 
     # save in a tab
