@@ -8,6 +8,7 @@ import pandas as pd
 import argparse
 from matplotlib.colors import Normalize
 import matplotlib.cm as cm
+import tqdm
 from utils.utils_tumor import (
     gen_image_from_coords,
     get_RdYlGr_masks,
@@ -48,6 +49,7 @@ def main():
     # load parameters
     vis_scale = config["patching"]["vis_scale"]
     step = int(vis_scale * patch_size)
+    inflams_checkpoints = config["paths"]["pth_to_inflams_ckpts"]
     tumor_checkpoints =  config["paths"]["pth_to_tumor_ckpts"]
 
     # create a dataframe
@@ -73,7 +75,7 @@ def main():
     slides = sorted(os.listdir(tumor_checkpoints))
 
     patient_slide_counter = {}
-    for slide_name_0 in slides:
+    for slide_name_0 in tqdm.tqdm(slides):
         slide_name = slide_name_0.split("_")[0]
         hospital = slide_name_0.split("_")[1]
         # count 1 slide for the patient
@@ -94,7 +96,7 @@ def main():
             y_har = tumor_data["arith_mean_preds"]
 
             with open(
-                f"checkpoints/coords_checkpoints/{slide_name}_{hospital}_coords_checkpoint.pt",
+                f"{inflams_checkpoints}/{slide_name}_{hospital}_coords_inflams_checkpoint.pt",
                 "rb",
             ) as handle:
                 coords = torch.load(handle,weights_only=False)
