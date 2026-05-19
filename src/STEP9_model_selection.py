@@ -1,6 +1,8 @@
 import pandas as pd
 import numpy as np
 import random
+import warnings
+warnings.filterwarnings('ignore')
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.model_selection import KFold, GridSearchCV,cross_val_score
@@ -23,7 +25,15 @@ from sklearn.metrics import (
     recall_score,
     confusion_matrix,
 )
+import argparse
 from sklearn.calibration import calibration_curve
+
+def parse_arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--groups",type=list[int],default=[2])
+    args = parser.parse_args()
+    return args
+
 
 # Fixing all random seeds
 SEED = 2025
@@ -63,7 +73,7 @@ df = df.sort_values(by="patient").drop("Nbre de lames", axis=1)
 
 ########################
 
-df_pb = df.loc[df["Hôpital"] =="KB"].drop("Hôpital", axis=1)
+df_pb = df.loc[df["Hôpital"] =="PB"].drop("Hôpital", axis=1)
 df_hm = df.loc[df["Hôpital"] =="HM"].drop("Hôpital", axis=1)
 df_bj = df.loc[df["Hôpital"] =="BJ"].drop("Hôpital", axis=1)
 
@@ -71,22 +81,28 @@ df_pb.shape, df_hm.shape, df_bj.shape
 
 ###################################
 
-FINAL_COLS = [
-    "Pattern expansif multinodulaire",
-    "log1p_taille",
-    "log1p_AFP",
-    "%P",
-    "%P_max",
-    "NP_CntArea_norm",
+args = parse_arguments()
+groups = args.groups
+
+FINAL_COLS = []
+
+if 1 in groups:
+    FINAL_COLS.extend(["log1p_taille","log1p_AFP",
+                       "Expansif multinodulaire","Nombre de nodules"])
+if 2 in groups:
+    FINAL_COLS.extend(["%P",
+    "%P_max","NP_CntArea_norm",
     "P_CntArea_norm",
-    "P_CntArea_norm_max",
-    "Intra-tumoral",
-    "Peri-tumoral",
-    "density",
+    "P_CntArea_norm_max"])
+if 3 in groups:
+    FINAL_COLS.extend(["density",
     "mean nucleus area",
     "anisocaryose",
-    "nucleocyto index",
-]
+    "nucleocyto index"])
+if 4 in groups:
+    FINAL_COLS.extend(["intra-tumoral",
+    "peri-tumoral"])
+
 
 #######
 
@@ -177,7 +193,7 @@ for model in model_list:
     inner_cv = KFold(n_splits=5,shuffle=True)
 
     new_model = Pipeline([('scaler','passthrough'),('preprocess','passthrough'),( 'classifier',model["model"]) ])
-    new_params = [{'classifier__'+k:v for k,v in parametres.items()}|{'scaler':[None,RobustScaler(),StandardScaler()]}|{'preprocess':[None,SplineTransformer()]} 
+    new_params = [{'classifier__'+k:v for k,v in parametres.items()}|{'scaler':[RobustScaler()]}|{'preprocess':[None,PolynomialFeatures()]} 
                   for parametres in model["params"]]
 
     grid_search = GridSearchCV(estimator=new_model,param_grid=new_params,cv=inner_cv)

@@ -7,8 +7,8 @@ import random
 import argparse
 from sklearn.pipeline import Pipeline
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.preprocessing import RobustScaler,MinMaxScaler,StandardScaler,SplineTransformer
 from sklearn.svm import SVC
+from sklearn.preprocessing import RobustScaler,MinMaxScaler,StandardScaler,SplineTransformer
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
@@ -65,14 +65,19 @@ if 4 in groups:
 
 #######
 
-X_train = df_pb[FINAL_COLS]
-y_train = df_pb["Récidive Globale"]
 
-X_test_bj = df_bj[FINAL_COLS]
+
+train = df_pb.loc[df_pb["patient"].between(1, 89)]
+test = df_pb.loc[~df_pb["patient"].between(1, 89)]
+
+X_train = train[FINAL_COLS]
+y_train = train["Récidive Globale"]
+
+X_test_bj = test[FINAL_COLS]
 X_test_hm = df_hm[FINAL_COLS]
 X_test = pd.concat([X_test_bj,X_test_hm])
 
-y_test_bj = df_bj["Récidive Globale"]
+y_test_bj = test["Récidive Globale"]
 y_test_hm = df_hm["Récidive Globale"]
 y_test = pd.concat([y_test_bj,y_test_hm])
 ##################

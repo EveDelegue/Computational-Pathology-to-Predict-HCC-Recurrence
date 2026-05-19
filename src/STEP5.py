@@ -10,7 +10,7 @@ def main():
     nuc_features = config["nuc_features"]
     nuc_checkpoint = config["paths"]["pth_to_nuc_ckpts"]
     
-    # create dataframe with each line is a slide
+    # create dataframe where each line is a slide
     df = pd.DataFrame(columns=["lame"] + nuc_features)
     df["lame"] = [e.split("_")[0] for e in os.listdir(nuc_checkpoint)]
 
