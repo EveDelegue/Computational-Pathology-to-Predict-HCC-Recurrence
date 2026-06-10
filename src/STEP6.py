@@ -5,15 +5,9 @@ import yaml
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from  PIL import Image
-from matplotlib.colors import Normalize
-import matplotlib.cm as cm
 import argparse
 import tqdm
-from utils.utils_tumor import (
-    gen_image_from_coords,
-    gen_image_from_coords_bis,
-)
+
 from utils.utils import draw_contours
 
 def parse_arguments():
@@ -46,13 +40,12 @@ def main():
     step_inflam = int(vis_scale * tia_patch_size)
 
     tumor_checkpoints =  config["paths"]["pth_to_tumor_ckpts"]
-    coords_checkpoints =  config["paths"]["pth_to_coords"]
     inflams_checkpoints =  config["paths"]["pth_to_inflams_ckpts"]
     inflams_verbose = config["paths"]["pth_to_inflams_wsis"]
 
 
     # create a dataframe
-    cols = ["lame", "peri-tumoral", "intra-tumoral",'hospital']
+    cols = ["lame", "peri-tumoral", "intra-tumoral",'hospital','nb_patch_inflam']
     df = pd.DataFrame(columns=cols)
     # fill the "lame" column
     df["lame"] = [
@@ -242,16 +235,16 @@ def main():
 
             # compute number of inflams in tumor
             idx_X, idx_Y = np.nonzero(final_inflam_tumor_image)
-            INFLAM_IN_ALL_T = final_inflam_tumor_image.sum() / len(idx_X) if len(idx_X)!=0 else 0
+            INFLAM_IN_ALL_T = final_inflam_tumor_image.sum()
             # print("inflam cells inside all tumor (mean per patch)", INFLAM_IN_ALL_T)
 
             # compute number of inflams inout tumor
             idx_X, idx_Y = np.nonzero(final_inout_tumor_image)
-            INFLAM_INOUT_T = final_inout_tumor_image.sum() / len(idx_X) if len(idx_X)!=0 else 0
+            INFLAM_INOUT_T = final_inout_tumor_image.sum()
             # print("inflam cells surrounding tumor (in & out) (mean per patch)", INFLAM_INOUT_T)
 
             # add to the table
-            df.loc[df["lame"] == slide_name] = [slide_name, INFLAM_INOUT_T, INFLAM_IN_ALL_T,hospital]
+            df.loc[df["lame"] == slide_name] = [slide_name, INFLAM_INOUT_T, INFLAM_IN_ALL_T,hospital,len(idx_X)]
 
     df["patient"] = df["lame"].apply(lambda x: x[:-1]).astype(int)
 
@@ -263,8 +256,10 @@ def main():
     # compute mean
     df_inflams["patient"] = df["patient"].unique()
     for patient in df["patient"].unique():
+        sum_features = df.loc[df["patient"] == patient][["peri-tumoral", "intra-tumoral"]].sum()
+        nb_patchs = df.loc[df["patient"] == patient][["nb_patch_inflam"]].sum()
         df_inflams.loc[df_inflams["patient"] == patient] = [patient] + list(
-            df.loc[df["patient"] == patient][["peri-tumoral", "intra-tumoral"]].mean()
+            sum_features/nb_patchs
         )
 
 

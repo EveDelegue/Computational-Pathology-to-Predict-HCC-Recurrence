@@ -93,7 +93,7 @@ def main():
                 f"{tumor_checkpoints}/{slide_name}_{hospital}_preds_probas_checkpoint.pt", "rb"
             ) as handle:
                 tumor_data = torch.load(handle,weights_only=False)
-            y_har = tumor_data["arith_mean_preds"]
+            y_har = tumor_data["har_mean_preds"]
 
             with open(
                 f"{inflams_checkpoints}/{slide_name}_{hospital}_coords_inflams_checkpoint.pt",

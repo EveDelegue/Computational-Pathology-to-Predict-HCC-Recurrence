@@ -1,11 +1,22 @@
 import os
 import pandas as pd
+import argparse
 import yaml
+
+def parse_arguments():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--verbose",type=bool,default=True)
+    parser.add_argument("--seuil_nb_lames",type=int,default=1000)
+    args = parser.parse_args()
+    return args
 
 def main():
     with open("config.yaml", "r") as f:
         config = yaml.safe_load(f)
 
+    # parse arguments
+    args = parse_arguments()
+    seuil_lames = args.seuil_nb_lames # TODO à faire
     # load config
     nuc_features = config["nuc_features"]
     nuc_checkpoint = config["paths"]["pth_to_nuc_ckpts"]

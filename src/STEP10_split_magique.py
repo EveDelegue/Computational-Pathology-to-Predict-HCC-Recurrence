@@ -12,7 +12,7 @@ from sklearn.preprocessing import RobustScaler,MinMaxScaler,StandardScaler,Splin
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--groups",type=list[int],default=[2])
+    parser.add_argument("--groups",type=list[int],default=[1,2,3,4])
     args = parser.parse_args()
     return args
 
@@ -24,8 +24,8 @@ np.random.seed(SEED)
 random.seed(SEED)
 
 # best model
-model = Pipeline(steps=[('scaler', RobustScaler()), ('preprocess', None),
-                ('classifier', SVC(kernel='rbf',C=1.5,probability=True))])
+model = Pipeline(steps=[('scaler', RobustScaler()), 
+                ('classifier', SVC(kernel='rbf',C=1.5,probability=True,gamma="scale",random_state=SEED))])
 
 df = pd.read_excel("data/tabs/input_dataframe_prognosis.xlsx")
 df = df.sort_values(by="patient").drop("Nbre de lames", axis=1)
@@ -48,7 +48,7 @@ FINAL_COLS = []
 
 if 1 in groups:
     FINAL_COLS.extend(["log1p_taille","log1p_AFP",
-                       "Expansif multinodulaire","Nombre de nodules"])
+                       "Expansif multinodulaire"])
 if 2 in groups:
     FINAL_COLS.extend(["%P",
     "%P_max","NP_CntArea_norm",
