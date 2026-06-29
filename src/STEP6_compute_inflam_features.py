@@ -13,7 +13,7 @@ from utils.utils import draw_contours
 def parse_arguments():
     parser = argparse.ArgumentParser()
     parser.add_argument("--verbose",type=bool,default=True)
-    parser.add_argument("--seuil_nb_lames",type=int,default=1000)
+    parser.add_argument("--seuil_nb_lames",type=int,default=100000)
     args = parser.parse_args()
     return args
 
@@ -64,7 +64,6 @@ def main():
             patient_slide_counter[patient] +=1
         else:
             patient_slide_counter[patient] = 1
-        aspect_ratio = mpp_dict[hospital]/mpp_dict["PB"]
 
         if patient_slide_counter[patient]<seuil_lames:
             aspect_ratio = mpp_dict[hospital]/mpp_dict["PB"]
@@ -83,7 +82,7 @@ def main():
             # copy from the loaded ones
             df_tumor["x"] = chkpt_tumor["coords_x"]
             df_tumor["y"] = chkpt_tumor["coords_y"]
-            df_tumor["tumor"] = [p.item() for p in chkpt_tumor["har_mean_preds"]]
+            df_tumor["tumor"] = [p.item() for p in chkpt_tumor["har_mean_preds"]] # can be arith, har or geo
             df_tumor["xx"] = df_tumor["x"] * vis_scale - x_start
             df_tumor["yy"] = df_tumor["y"] * vis_scale - y_start
 
@@ -127,7 +126,7 @@ def main():
 
             # init black image for inflamation
             image_inf = np.zeros(
-                (int(coords_y_max), int(coords_x_max)), dtype=np.uint8
+                (int(coords_y_max), int(coords_x_max))
             )
 
             # make pixels where value
@@ -135,8 +134,8 @@ def main():
             for x, y, p in zip(coords_x_inf, coords_y_inf, preds_inf):
                 set_inflams.add(p)
                 if p >0:
-                    image_inf[int(y) : int(y) + step_inflam, int(x) : int(x) + step_inflam] =p
-
+                    image_inf[int(y) : int(y) + step_inflam, int(x) : int(x) + step_inflam] +=p
+            img_tum_res = image_bin_tum
             if verbose:
                 plt.figure()
                 plt.subplot(1,3,1)
@@ -145,7 +144,6 @@ def main():
                 plt.subplot(1,3,2)
                 plt.imshow(image_bin_tum)
                 plt.title('image tumor')
-                img_tum_res = image_bin_tum
                 plt.subplot(1,3,3)
                 plt.imshow((img_tum_res*image_inf),vmax=5)
                 plt.title("sum")
@@ -166,25 +164,27 @@ def main():
             size = 2 * int((35 /aspect_ratio)/2) + 1 # closest odd number to this 
             kernel = cv2.getStructuringElement(
                 cv2.MORPH_RECT, (size, size)
-            )  # rectangular kernel corresponds to 1 cm
+            )
             # clean tissue mask
             opened_image_og = cv2.morphologyEx(closed_image_og, cv2.MORPH_OPEN, kernel)
             # clean tumor mask
             opened_image = cv2.morphologyEx(closed_image, cv2.MORPH_OPEN, kernel)
 
             # take external border
-            size = 2 * int((27 /aspect_ratio)/2) + 1 # closest odd number to this  
+            size = 2 * int((29 /aspect_ratio)/2) + 1 # closest odd number to this  
             kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (size, size)) # corresponds to 1 mm 
             # tissue + contour
             dilated_image_og = cv2.dilate(opened_image_og, kernel, iterations=1)
             # tumor + contour
             dilated_image = cv2.dilate(opened_image, kernel, iterations=1)
             # tumor contour
-            out_tumor = dilated_image - opened_image
+            out_tumor_0 = dilated_image - opened_image
             # tissue contour
-            out_og = dilated_image_og-closed_image_og
+            out_og = dilated_image_og-opened_image_og
+            size_pat = 2 * int((9 /aspect_ratio)/2) + 1 # closest odd number to this 
+            out_og = cv2.dilate(out_og, cv2.getStructuringElement(cv2.MORPH_RECT, (size_pat, size_pat)), iterations=1) #corresponds to 1 patch
             # tumor contour that is NOT in the tissue contour
-            out_tumor = out_tumor.astype(bool) * (1-out_og).astype(bool)
+            out_tumor = out_tumor_0.astype(bool) * (1-out_og).astype(bool)
             out_tumor = out_tumor.astype(np.uint8)
 
             # take internal border
@@ -194,11 +194,11 @@ def main():
             # inside of the tumor
             eroded_image = cv2.erode(opened_image, kernel, iterations=1)
             # tumor contour
-            in_tumor = opened_image - eroded_image
+            in_tumor_0 = opened_image - eroded_image
             # tissue contour
             in_og = closed_image_og - eroded_image_og
             # tumor contour that is NOT in the tissue internal contour
-            in_tumor = in_tumor.astype(bool) * (1-in_og).astype(bool)
+            in_tumor = in_tumor_0.astype(bool) * (1-in_og).astype(bool)
             in_tumor = in_tumor.astype(np.uint8)
 
             inout_tumor = in_tumor.astype(bool) | out_tumor.astype(bool)
@@ -212,22 +212,45 @@ def main():
                 plt.imshow(draw_contours(img_tum_res, scaled_slide) )
                 plt.title('original image')
                 plt.subplot(2,3,2)
+                plt.imshow(draw_contours(opened_image_og, scaled_slide))
+                plt.title("Clean contours")
+                plt.subplot(2,3,3)
+                plt.imshow(draw_contours(dilated_image_og, scaled_slide))
+                plt.title("dilated tissue")
+                plt.subplot(2,3,4)
+                plt.imshow(draw_contours(out_og, scaled_slide))
+                plt.title("out tissue")
+                plt.subplot(2,3,5)
+                plt.imshow(draw_contours(out_tumor_0, scaled_slide))
+                plt.title("out tumor_0")
+                plt.subplot(2,3,6)
+                plt.imshow(out_tumor,vmax=2)
+                plt.title("final out tumor")
+                plt.tight_layout()
+                plt.savefig(inflams_verbose+'/'+slide.replace('_coords_inflams_checkpoint.pt','_out.png'))
+                plt.close()
+
+                plt.figure()
+                plt.subplot(2,3,1)
+                plt.imshow(draw_contours(img_tum_res, scaled_slide) )
+                plt.title('original image')
+                plt.subplot(2,3,2)
                 plt.imshow(draw_contours(opened_image, scaled_slide))
                 plt.title("Clean contours")
                 plt.subplot(2,3,3)
-                plt.imshow(draw_contours(opened_image_og, scaled_slide))
-                plt.title("tissue contour")
-                plt.subplot(2,3,4)
                 plt.imshow(draw_contours(eroded_image, scaled_slide))
-                plt.title("in tumor")
+                plt.title("intra tumoral")
+                plt.subplot(2,3,4)
+                plt.imshow(draw_contours(in_tumor_0, scaled_slide))
+                plt.title("contour in tumor")
                 plt.subplot(2,3,5)
                 plt.imshow(draw_contours(inout_tumor, scaled_slide))
-                plt.title("tumor peripheral")
+                plt.title("tumor peripheral in ")
                 plt.subplot(2,3,6)
                 plt.imshow(final_inout_tumor_image,vmax=2)
                 plt.title("final inflammation contour")
                 plt.tight_layout()
-                plt.savefig(inflams_verbose+'/'+slide.replace('_coords_inflams_checkpoint.pt','_inout.png'))
+                plt.savefig(inflams_verbose+'/'+slide.replace('_coords_inflams_checkpoint.pt','_int.png'))
                 plt.close()
 
 
@@ -257,7 +280,7 @@ def main():
     df_inflams["patient"] = df["patient"].unique()
     for patient in df["patient"].unique():
         sum_features = df.loc[df["patient"] == patient][["peri-tumoral", "intra-tumoral"]].sum()
-        nb_patchs = df.loc[df["patient"] == patient][["nb_patch_inflam"]].sum()
+        nb_patchs = df.loc[df["patient"] == patient]["nb_patch_inflam"].sum()
         df_inflams.loc[df_inflams["patient"] == patient] = [patient] + list(
             sum_features/nb_patchs
         )

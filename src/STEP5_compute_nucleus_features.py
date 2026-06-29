@@ -25,7 +25,7 @@ def main():
     df = pd.DataFrame(columns=["lame"] + nuc_features + ['nb_patch'])
     df["lame"] = [e.split("_")[0] for e in os.listdir(nuc_checkpoint)]
 
-    # add the mean of the parameters
+    # add the sum of the parameters and the number of patchs
     for data_name in os.listdir(nuc_checkpoint):
         data = pd.read_csv(os.path.join(nuc_checkpoint,data_name))
         slide_name = data_name.split("_")[0]
@@ -44,8 +44,11 @@ def main():
 
     # add the mean of the parameters
     for patient in df["patient"].unique():
+        # sum the features for each slide
         sum_features = df.loc[df["patient"] == patient][nuc_features].sum()
+        # sum the number of patchs for each slide
         sum_patchs = df.loc[df["patient"] == patient]['nb_patch'].sum()
+        # the mean for the patient is the ratio between total sum of features and total number of patchs
         df_nuclear.loc[df_nuclear["patient"] == patient] = [patient] + list(
             sum_features/sum_patchs
         )
