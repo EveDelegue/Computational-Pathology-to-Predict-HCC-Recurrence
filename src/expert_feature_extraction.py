@@ -1,28 +1,23 @@
 from utils.patch_generation import mask_tissue
 
-image_path = "/home/eve/personal/papier_aymen/Computational-Pathology-to-Predict-HCC-Recurrence/data/WSIs/BJ/Patient_224/224B.svs"
+image_path = "/home/eve/personal/CCK_survival_prediction/raw_data/3eme_batch/CKDG082.svs"
 #### Patch classification (Pej vs non pej vs sain)
 
 ## extraction des patchs
 
 # 1 masque de tissus
 
-mask_tissue(image_path,verbose=True)
+mask, slide = mask_tissue(image_path,verbose=True,verbose_path="brouillons/visuals_biopsy_sat4",n_threshold=4,chanel='saturation')
 
-image_path = "/home/eve/personal/papier_aymen/Computational-Pathology-to-Predict-HCC-Recurrence/data/WSIs/PB/Patient_73/73B.mrxs"
+# 2 decoupe de coordonnées des patchs
+
+image_path = "data/WSIs/BJ/Patient_224/224B.svs"
 #### Patch classification (Pej vs non pej vs sain)
 
 ## extraction des patchs
 
 # 1 masque de tissus
 
-mask_tissue(image_path,verbose=True)
+mask, slide = mask_tissue(image_path,verbose=True,verbose_path="brouillons/visuals_biopsy_sat4",n_threshold=4,chanel='saturation')
 
-image_path = "/home/eve/personal/papier_aymen/Computational-Pathology-to-Predict-HCC-Recurrence/data/WSIs/HM/Patient_124/124A.ndpi"
-#### Patch classification (Pej vs non pej vs sain)
-
-## extraction des patchs
-
-# 1 masque de tissus
-
-mask_tissue(image_path,verbose=True)
+# 2 decoupe de coordonnées des patchs
