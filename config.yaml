@@ -34,6 +34,7 @@ nucleus_model:
   kernel_size: 7
 
 paths:
+  pth_to_wsi: "data/WSIs"
   pth_to_patches: "data/patches"
   pth_to_patches_bis: "data/patches_bis"
   pth_to_features: "data/features"

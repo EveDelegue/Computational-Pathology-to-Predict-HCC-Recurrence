@@ -5,9 +5,9 @@ import torchvision.models as models
 class IndepResNetModel(nn.Module):
     def __init__(self):
         super(IndepResNetModel,self).__init__()
-        self.resnet1=models.resnet34(pretrained=False)
-        self.resnet2=models.resnet34(pretrained=False)
-        self.resnet3=models.resnet34(pretrained=False)
+        self.resnet1=models.resnet34()
+        self.resnet2=models.resnet34()
+        self.resnet3=models.resnet34()
         
         for resnet in [self.resnet1, self.resnet2, self.resnet3]:
             for param in resnet.parameters():
