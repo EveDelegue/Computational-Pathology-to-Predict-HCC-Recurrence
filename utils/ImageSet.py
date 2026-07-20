@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 from torchvision.transforms.functional import pil_to_tensor
-
+import openslide as op
 
 class ImageSet(Dataset):
     def __init__(self, data, labels, transforms):
@@ -35,15 +35,15 @@ class ImageSet_2(Dataset):
         return imgs
     
 class MultiscaleSet(Dataset):
-    # TODO 
-    def __init__(self, slide,filtered_coords, patch_size_p,device,ref_path="notebooks/HES__5.jpeg" , color_norm=stainNorm_Reinhard.DummyNormalizer()):
+    def __init__(self, slide,filtered_coords, patch_size_p,device,ref_path="notebooks/HES__5.jpeg" , color_norm:object=stainNorm_Reinhard.ModifiedNormalizer(),verbose=False):
         self.coords = filtered_coords
         self.slide = slide
-        color_norm.fit(plt.imread(ref_path))
+        #color_norm.fit(plt.imread(ref_path))
+        color_norm.fit(op.OpenSlide(ref_path))
         self.norm = color_norm
         self.patch_size_p = patch_size_p
         self.device = device
-
+        self.verbose = verbose
 
     def __len__(self):
         return len(self.coords)
@@ -54,8 +54,12 @@ class MultiscaleSet(Dataset):
         x = center[0]-self.patch_size_p[0]//2
         y = center[1]-self.patch_size_p[1]//2 
         patch = np.array(self.slide.read_region((y,x),0,self.patch_size_p).convert("RGB"))
+        if self.verbose:
+            plt.imsave('og.png',np.array(patch))
         # normalize it
         patch = self.norm.transform(patch)
+        if self.verbose:
+            plt.imsave('reinhard.png',np.array(patch))
         # compute the 3 rescaled versions
         res3 = patch.shape[0]  # 1152 626 1094
         res2 = int(res3 / 1.5)

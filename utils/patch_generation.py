@@ -7,7 +7,7 @@ from skimage.filters import threshold_multiotsu
 import warnings
 import itertools
 
-def get_patch_coords(slide:op.OpenSlide,mask:np.ndarray,size:tuple[int,int]=(287,287),step:tuple[int,int]=(1,1),verbose:bool=False,verbose_path:str="brouillons/visuals")->tuple[list[tuple[int,int]],tuple[int,int]] :
+def get_patch_coords(slide:op.OpenSlide,mask:np.ndarray,size:tuple[int,int]=(280,280),step:tuple[int,int]=(1,1),verbose:bool=False,verbose_path:str="brouillons/visuals")->tuple[list[tuple[int,int]],tuple[int,int]] :
     """create a list of patch coordinates in the slide inside the mask, for the desired size and step in the desired mpp. The coordinates are not necessarily of the right size, but when rescaled to the right mpp they will.
     
     :param slide: input tile  

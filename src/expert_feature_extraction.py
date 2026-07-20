@@ -47,7 +47,7 @@ for image_path in slides_list:
 
     # 3 use in pej non-pej pipeline
     if not(os.path.exists(os.path.join(save_path,'tumor_dict.pkl'))):
-        tumor_dict = detect_architectures(slide,filtered_coords,patch_size_p,model_path="models",verbose=True,verbose_path=visual_path)
+        tumor_dict = detect_architectures(slide,filtered_coords,patch_size_p,model_path="models",verbose=True,verbose_path=visual_path,mask=mask)
         save_data(save_path,{'tumor_dict':tumor_dict})
     else:
         tumor_dict = load_data(save_path,'tumor_dict')

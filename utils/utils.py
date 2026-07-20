@@ -65,7 +65,7 @@ def load_data(save_path:str,variable_name:str):
     return a
     
 
-def get_Bright_Dark_perc(image, bright_threshold:float=0.8, dark_threshold:float=0.05):
+def get_Bright_Dark_perc(image, bright_threshold:float=0.95, dark_threshold:float=0.25):
     """
     Calculate the percentage of bright and dark pixels in an image.
 
