@@ -7,6 +7,9 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 from matplotlib.ticker import FuncFormatter
 import os
+import pickle
+from typing import Any
+from torchvision.transforms.functional import rgb_to_grayscale
 
 def log_tick_formatter(x):
     return f"{np.expm1(x):.0f}"
@@ -36,6 +39,61 @@ def interpolate(size: int, nominateur: float, denominateur: float):
     """
     return int((size * nominateur) // denominateur)
 
+def save_data(save_path:str,data:dict[str,Any]):
+    """helper fonction to store intermediate data
+    :param save_path: path to save the data
+    :type save_path: str
+    :param data: dict containing the data to store labeleb by variable name
+    :type data: dict[str,Any]
+    """
+    # create checkpoint
+    os.makedirs(save_path,exist_ok=True)
+    # pickle dump the data into the save path
+    for name,content in data.items():
+        with open(os.path.join(save_path,f'{name}.pkl'),"wb") as file:
+            pickle.dump(content,file)
+
+def load_data(save_path:str,variable_name:str):
+    """helper fonction to load intermediate data
+    :param save_path: path to load the data
+    :type save_path: str
+    :param variable_name: name of the variable to load
+    :type variable_name: str
+    """
+    with open(os.path.join(save_path,f'{variable_name}.pkl'), 'rb') as file:
+        a = pickle.load(file)
+    return a
+    
+
+def get_Bright_Dark_perc(image, bright_threshold:float=0.8, dark_threshold:float=0.05):
+    """
+    Calculate the percentage of bright and dark pixels in an image.
+
+    This function converts a torch image to grayscale and computes the proportion
+    of pixels that are considered "bright" (white) and "dark" (black) based on
+    specified intensity thresholds.
+
+    Args:
+        image (torch.tensor): A tensor to analyze.
+        bright_threshold (float, optional): The grayscale intensity threshold above which
+            pixels are considered bright. Defaults to 0.7.
+        dark_threshold (float, optional): The grayscale intensity threshold below which
+            pixels are considered dark. Defaults to 0.05.
+
+    Returns:
+        tuple: A tuple containing:
+            - bright_percentage (float): The proportion of bright pixels (0.0 to 1.0).
+            - dark_percentage (float): The proportion of dark pixels (0.0 to 1.0).
+    """
+    grayscale_image = rgb_to_grayscale(image)
+    # Count bright/white and dark/black pixels
+    bright_pixels = torch.sum(grayscale_image > bright_threshold)
+    dark_pixels = torch.sum(grayscale_image < dark_threshold)
+    # Calculate percentages
+    total_pixels = grayscale_image.shape[-2]*grayscale_image.shape[-1]
+    bright_percentage = bright_pixels / total_pixels
+    dark_percentage = dark_pixels / total_pixels
+    return bright_percentage, dark_percentage
 
 def get_BrightandDark_perc(pil_image, bright_threshold=200, dark_threshold=20):
     """

@@ -7,7 +7,7 @@ from skimage.filters import threshold_multiotsu
 import warnings
 import itertools
 
-def get_patch_coords(slide:op.OpenSlide,mask:np.ndarray,size:tuple[int,int]=(287,287),step:tuple[int,int]=(1,1),verbose:bool=False,verbose_path:str="brouillons/visuals")->list[tuple]:
+def get_patch_coords(slide:op.OpenSlide,mask:np.ndarray,size:tuple[int,int]=(287,287),step:tuple[int,int]=(1,1),verbose:bool=False,verbose_path:str="brouillons/visuals")->tuple[list[tuple[int,int]],tuple[int,int]] :
     """create a list of patch coordinates in the slide inside the mask, for the desired size and step in the desired mpp. The coordinates are not necessarily of the right size, but when rescaled to the right mpp they will.
     
     :param slide: input tile  
@@ -29,7 +29,7 @@ def get_patch_coords(slide:op.OpenSlide,mask:np.ndarray,size:tuple[int,int]=(287
     mpp = float(slide.properties[op.PROPERTY_NAME_MPP_X])
     # get patch size at level 0
     patch_size_p = size[0]//mpp,size[1]//mpp
-    patch_size_p=tuple(int(i) for i in patch_size_p)
+    patch_size_p=(int(patch_size_p[0]),int(patch_size_p[1]))
     # get level 0 dimensions in pixels
     dim_0 = slide.dimensions
     # get patch coordinates for the whole image
@@ -54,12 +54,13 @@ def get_patch_coords(slide:op.OpenSlide,mask:np.ndarray,size:tuple[int,int]=(287
             x = center[0]-patch_size_p[0]//2
             y = center[1]-patch_size_p[1]//2 
             patch = slide.read_region((y,x),0,patch_size_p)
-            plt.imsave(os.path.join(verbose_path,f"{x}_{y}_patch.png"),patch)
+            plt.imsave(os.path.join(verbose_path,f"{x}_{y}_patch.png"),np.array(patch))
+    return filtered_coords, patch_size_p
 
 
 
 
-def mask_tissue(tile_path:str,verbose:bool=False,verbose_path:str="brouillons/visuals",n_threshold:int=4,chanel:str='saturation')->np.ndarray:
+def mask_tissue(tile_path:str,verbose:bool=False,verbose_path:str="brouillons/visuals",n_threshold:int=4,chanel:str='saturation')->tuple[np.ndarray,op.OpenSlide]:
     """detect tissue zones in the tile and return a mask
     
     :param tile_path: input tile path 
@@ -105,7 +106,7 @@ def mask_tissue(tile_path:str,verbose:bool=False,verbose_path:str="brouillons/vi
         plt.imsave(os.path.join(verbose_path,f"{os.path.basename(tile_path).split('.')[0]}_thumbnail_sat.png"),thumb_sat)
     
     # multi otsu threshold 
-    # three classes.
+    # select classes.
     thresholds = threshold_multiotsu(thumb_sat,classes=n_threshold)
     thumb_thresh = np.digitize(thumb_sat, bins=thresholds)
 

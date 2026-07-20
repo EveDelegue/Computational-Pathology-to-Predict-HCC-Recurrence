@@ -2,10 +2,16 @@ import torch
 from tqdm import tqdm
 import numpy as np
 import cv2
+import openslide as op
 import os
 import matplotlib.pyplot as plt
 from PIL import Image
 from utils.model_archi import IndepResNetModel
+from utils.ImageSet import MultiscaleSet
+from utils.utils import get_Bright_Dark_perc
+from torch.utils.data import DataLoader
+import pandas as pds
+from torchvision.utils import save_image
 
 pej_color = np.array([220, 20, 60])  # crimson     #DC143C
 non_pej_color = np.array([255, 215, 0])  # gold       #FFD700
@@ -250,3 +256,155 @@ def get_largest_connected_area(masked_image, color):
         area = 0.0
         result = mask
     return result, area
+
+
+def detect_architectures(slide:op.OpenSlide,filtered_coords:list[tuple[int,int]],patch_size_p:tuple[int,int],model_path:str|os.PathLike,perc_bpx:float=0.05,perc_wpx:float=0.7, verbose:bool=False,verbose_path:str="brouillons/visuals")->dict[tuple[int,int], dict[str,int]]:
+    """Classifies the patchs between 3 classes : non-tumoral, tumoral non-pejorative and tumoral pejorative.
+    
+    :param slide: input tile  
+    :type tile_path: OpenSlide
+    :param verbose_path: path for intermediate figures. Default = "brouillons/visuals"
+    :type verbose_path: str
+    :param verbose: if we wish to show intermediate plots. Default = False 
+    :type verbose: bool
+    :param perc_bpx: max proportion of black pixels accepted in a patch (default = 0.7)
+    :type perc_bpx: float
+    param perc_wpx: max proportion of white pixels accepted in a patch (default = 0.05)
+    :type perc_wpx: float
+    :param filtered_coords: coordinates of the patchs 
+    :type filtered_coords: list[tuple]
+    :param patch_size_p: patch size 
+    :type patch_size_p: tuple[int,int]
+    :param model_path: path to the 5 networks used 
+    :type model_path: str or PathLike
+    """
+    
+    # load models
+    models = load_models(pth=model_path) # were they trained on an external dataset ?
+    # load data
+    Data = MultiscaleSet(slide,filtered_coords,patch_size_p,device="cuda" if torch.cuda.is_available() else "cpu")
+    loader = DataLoader(Data)
+    # create a pandas dataframe for the output
+    tumor_dict = {}
+    if verbose:
+        # create visuals 
+        class_dict = {0:0,1:0,2:0}
+    # apply model to the data
+    with torch.no_grad():
+        for img_1,img_2,img_3,x,y in tqdm(loader):
+            # check if not too much black or white
+            wpx, bpx = get_Bright_Dark_perc(img_3) # compute the black/white ratio
+            if wpx < perc_wpx and bpx < perc_bpx: # if not too much white and not too much black
+                # compute probabilities for each model
+                list_probas = []
+                for model in models:
+                    model.eval()
+                    list_probas.append(torch.softmax(model(img_1, img_2, img_3), dim=1))
+                probas = torch.cat(list_probas)
+                # ensemble the output with a harmonic mean (see Deep Learning Classification and Quantification of Pejorative and Nonpejorative Architectures in Resected Hepatocellular Carcinoma from Digital Histopathologic Images)
+                mean_proba = len(probas) / ((1 / (probas + 1e-8)).sum(dim=0))
+                # find more likely class
+                preds = int(mean_proba.softmax(0).argmax(0)) 
+                # store in a dictionnary
+                x,y = int(x),int(y)
+                tumor_dict[(x,y)] = {"architecture":preds}
+                # visualise result
+                if verbose:
+                    # show 5 patchs for each class
+                    p = np.random.uniform()
+                    if (p<(100/len(loader))) and (class_dict[preds] < 5):
+                        os.makedirs(os.path.join(verbose_path,f'class_{preds}'),exist_ok=True)
+                        save_image(img_3,os.path.join(verbose_path,f'class_{preds}',f'x_{x}_y_{y}.png'))
+                        class_dict[int(preds)]+=1
+    # visualise whole slide
+    if verbose:
+        thumbnail = np.array(slide.get_thumbnail(slide.level_dimensions[-1]))
+        rescaling_factor = slide.level_downsamples[-1]
+        rescaled_p_sz =  (np.array(patch_size_p)//(rescaling_factor)).astype(int)
+        for coords,prediction in tumor_dict.items():
+            rescaled_coords = (np.array(coords)//rescaling_factor).astype(int)
+            thumbnail[rescaled_coords[0]: rescaled_coords[0]+rescaled_p_sz[0], rescaled_coords[1]: rescaled_coords[1]+rescaled_p_sz[1]] = [0,0,0]
+            thumbnail[rescaled_coords[0]: rescaled_coords[0]+rescaled_p_sz[0], rescaled_coords[1]: rescaled_coords[1]+rescaled_p_sz[1],prediction["architecture"]] = 255
+        plt.imsave(os.path.join(verbose_path,'tumor_pred.png'),thumbnail)
+
+    return tumor_dict
+
+
+def mask_tumor(result_dict:dict[tuple[int,int], dict[str,int]],patch_size_p:tuple[int,int],slide:op.OpenSlide,verbose:bool=False,verbose_path:str="brouillons/visuals"):
+    """Creates a mask of the inside of the tumoral region, as well as the frontier.
+    
+    :param result_dict: the result of the tumor architecture detection
+    :type result_dict: Dict[tuple[int,int], Dict[str,int]]
+    :param slide: input tile  
+    :type tile_path: OpenSlide
+    :param verbose_path: path for intermediate figures. Default = "brouillons/visuals"
+    :type verbose_path: str
+    :param verbose: if we wish to show intermediate plots. Default = False 
+    :type verbose: bool
+    :param patch_size_p: patch size 
+    :type patch_size_p: tuple[int,int]
+    """
+
+    # load thumbnail
+    thumbnail = np.array(slide.get_thumbnail(slide.level_dimensions[-1]))
+    tumor_thumbnail = np.zeros_like(thumbnail) # 3 chanel image, each chanel will be a class 
+    # color it depending on the architectures
+    rescaling_factor = slide.level_downsamples[-1]
+    rescaled_p_sz =  (np.array(patch_size_p)/(rescaling_factor)).astype(int)
+    # init class counter
+    class_dict = {0:0,1:0,2:0}
+    for coords,prediction in result_dict.items():
+            rescaled_coords = (np.array(coords)/rescaling_factor).astype(int)
+            # count the frequency of each class 
+            class_dict[prediction['architecture']]+=1  
+            # put a 1 in the corresponding class
+            tumor_thumbnail[rescaled_coords[0]: rescaled_coords[0]+rescaled_p_sz[0], rescaled_coords[1]: rescaled_coords[1]+rescaled_p_sz[1],prediction['architecture']] = 1
+    if verbose:
+        plt.imsave(os.path.join(verbose_path,'tumor_classes.png'),tumor_thumbnail*255)
+    # compute pejorative proportion
+    P_ratio = class_dict[2]/(class_dict[2]+class_dict[1]) if (class_dict[2]+class_dict[1])>0 else 0
+
+    ## clean the contours
+    # fill in the holes 
+    close_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, tuple(2*rescaled_p_sz))  
+    # clean tissue mask
+    closed_tumor = cv2.morphologyEx(tumor_thumbnail, cv2.MORPH_CLOSE, close_kernel)
+    if verbose:
+        plt.imsave(os.path.join(verbose_path,'tumor_closed.png'),closed_tumor*255)
+    
+    # remove small objects
+    open_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, tuple(2*rescaled_p_sz))
+    opened_tumor = cv2.morphologyEx(closed_tumor, cv2.MORPH_OPEN, open_kernel)
+    if verbose:
+        plt.imsave(os.path.join(verbose_path,'tumor_opened.png'),opened_tumor*255)
+    
+    pej_chanel = opened_tumor[:,:,2]
+    non_pej_chanel = opened_tumor[:,:,1]
+    non_tum_chanel = opened_tumor[:,:,0]
+    # detect largest pej contour
+    contours, _ = cv2.findContours(pej_chanel, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    mask = np.zeros_like(pej_chanel)
+    if len(contours) != 0:
+        # Get the largest area
+        largest_contour = max(contours, key=cv2.contourArea)
+        # Draw the largest contour on a new image
+        cv2.drawContours(mask, [largest_contour], 0, 255, -1)
+        if verbose:
+            plt.imsave(os.path.join(verbose_path,'largest_pej.png'),mask)
+        area_pej = cv2.contourArea(largest_contour)
+    
+    # detect largest non-pej contour
+    contours, _ = cv2.findContours(non_pej_chanel, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    mask = np.zeros_like(non_pej_chanel)
+    if len(contours) != 0:
+        # Get the largest area
+        largest_contour = max(contours, key=cv2.contourArea)
+        # Draw the largest contour on a new image
+        cv2.drawContours(mask, [largest_contour], 0, 255, -1)
+        if verbose:
+            plt.imsave(os.path.join(verbose_path,'largest_non_pej.png'),mask)
+        area_non_pej = cv2.contourArea(largest_contour)
+    
+    #return in_mask,out_mask
+    return 0,0
+    
