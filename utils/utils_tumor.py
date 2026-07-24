@@ -259,7 +259,7 @@ def get_largest_connected_area(masked_image, color):
     return result, area
 
 
-def detect_architectures(slide:op.OpenSlide,filtered_coords:list[tuple[int,int]],patch_size_p:tuple[int,int],model_path:str|os.PathLike,mask:np.ndarray,perc_bpx:float=0.3,perc_wpx:float=0.7, verbose:bool=True,verbose_path:str="brouillons/visuals")->dict[tuple[int,int], dict[str,int]]:
+def detect_architectures(slide:op.OpenSlide,filtered_coords:list[tuple[int,int]],patch_size_p:tuple[int,int],model_path:str|os.PathLike,mask:np.ndarray,perc_bpx:float=0.3,perc_wpx:float=0.7, verbose:bool=True,verbose_path:str="brouillons/visuals",color_norm:object=stainNorm_Reinhard.DummyNormalizer())->dict[tuple[int,int], dict[str,int]]:
     """Classifies the patchs between 3 classes : non-tumoral, tumoral non-pejorative and tumoral pejorative.
     
     :param slide: input tile  
@@ -278,6 +278,8 @@ def detect_architectures(slide:op.OpenSlide,filtered_coords:list[tuple[int,int]]
     :type patch_size_p: tuple[int,int]
     :param model_path: path to the 5 networks used 
     :type model_path: str or PathLike
+    :param stain_norm: color normalisation model 
+    :type stain_norm: object
     """
     
     # load models
@@ -285,7 +287,7 @@ def detect_architectures(slide:op.OpenSlide,filtered_coords:list[tuple[int,int]]
     # load data
     device="cuda" if torch.cuda.is_available() else "cpu"
 
-    Data = MultiscaleSet(slide,filtered_coords,patch_size_p,device=device,color_norm=stainNorm_Reinhard.GlobalNormalizer(slide,mask),ref_path='data/WSIs/PB/Patient 63/63A.mrxs')
+    Data = MultiscaleSet(slide,filtered_coords,patch_size_p,device=device,color_norm=color_norm)
     #Data = MultiscaleSet(slide,filtered_coords,patch_size_p,device="cuda" if torch.cuda.is_available() else "cpu")
     loader = DataLoader(Data)
     # create a pandas dataframe for the output

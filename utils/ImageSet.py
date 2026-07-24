@@ -38,8 +38,8 @@ class MultiscaleSet(Dataset):
     def __init__(self, slide,filtered_coords, patch_size_p,device,ref_path="notebooks/HES__5.jpeg" , color_norm:object=stainNorm_Reinhard.ModifiedNormalizer(),verbose=False):
         self.coords = filtered_coords
         self.slide = slide
-        #color_norm.fit(plt.imread(ref_path))
-        color_norm.fit(op.OpenSlide(ref_path))
+        color_norm.fit(plt.imread(ref_path))
+        #color_norm.fit(op.OpenSlide(ref_path))
         self.norm = color_norm
         self.patch_size_p = patch_size_p
         self.device = device
