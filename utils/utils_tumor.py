@@ -268,9 +268,9 @@ def detect_architectures(slide:op.OpenSlide,filtered_coords:list[tuple[int,int]]
     :type verbose_path: str
     :param verbose: if we wish to show intermediate plots. Default = False 
     :type verbose: bool
-    :param perc_bpx: max proportion of black pixels accepted in a patch (default = 0.7)
+    :param perc_bpx: max proportion of black pixels accepted in a patch (default = 0.3)
     :type perc_bpx: float
-    param perc_wpx: max proportion of white pixels accepted in a patch (default = 0.05)
+    param perc_wpx: max proportion of white pixels accepted in a patch (default = 0.7)
     :type perc_wpx: float
     :param filtered_coords: coordinates of the patchs 
     :type filtered_coords: list[tuple]

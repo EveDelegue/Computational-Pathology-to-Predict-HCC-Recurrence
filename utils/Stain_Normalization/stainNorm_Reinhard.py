@@ -39,7 +39,6 @@ def lab_split(I):
     I1, I2, I3 = cv.split(I)
     return I1, I2, I3
 
-
 def merge_back(I1, I2, I3):
     """
     Take seperate LAB channels and merge back to give RGB uint8
@@ -50,7 +49,6 @@ def merge_back(I1, I2, I3):
     """
     I = np.clip(cv.merge((I1, I2, I3)), 0, 255).astype(np.uint8)
     return cv.cvtColor(I, cv.COLOR_LAB2RGB)
-
 
 def get_mean_std(I1,I2,I3):
     """
@@ -66,7 +64,6 @@ def get_mean_std(I1,I2,I3):
     means = m1, m2, m3
     stds = sd1, sd2, sd3
     return means, stds
-
 
 ### Main class ###
 
@@ -301,7 +298,6 @@ class ZeroOneNormalizer(object):
         norm = 255*(I - I.min()) / (I.max() - I.min())
         return norm.astype(np.uint8)
 
-
 class LABGlobalMeanNormalizer(object):
     """
     A stain normalization object based on "Color transfer between images" by Reinhard
@@ -393,17 +389,6 @@ class VahadaneNormalizer(DummyNormalizer):
         norm = I.copy()
         norm[mask] = I_norm
         return norm.astype(np.uint8)
-
-class DummyNormalizer(object):
-    """
-    A dummy stain normalization object
-    """
-
-    def fit(self, target):
-        pass
-
-    def transform(self, I):
-        return I
 
 class MacenkoNormalizer(object):
     """
