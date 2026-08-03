@@ -5,6 +5,10 @@ import numpy as np
 from PIL import Image
 from torchvision.transforms.functional import pil_to_tensor
 import openslide as op
+import os
+from utils.utils import save_data,load_data
+from utils.patch_generation import mask_tissue, get_patch_coords
+import yaml
 
 class ImageSet(Dataset):
     def __init__(self, data, labels, transforms):
@@ -35,15 +39,40 @@ class ImageSet_2(Dataset):
         return imgs
     
 class MultiscaleSet(Dataset):
-    def __init__(self, slide,filtered_coords, patch_size_p,device,ref_path="notebooks/HES__5.jpeg" , color_norm:object=stainNorm_Reinhard.ModifiedNormalizer(),verbose=False):
+    def __init__(self, slide,filtered_coords, patch_size_p,device,ref_slide_path="data/WSIs/PB/Patient 63/63A.mrxs" ,ref_patch_path='notebooks/HES__5.jpeg', color_norm:object=stainNorm_Reinhard.ModifiedNormalizer(),verbose=False):
         self.coords = filtered_coords
         self.slide = slide
-        color_norm.fit(plt.imread(ref_path))
-        #color_norm.fit(op.OpenSlide(ref_path))
-        self.norm = color_norm
         self.patch_size_p = patch_size_p
         self.device = device
         self.verbose = verbose
+        #requires_patch = [stainNorm_Reinhard.Normalizer().__class__, stainNorm_Reinhard.ModifiedNormalizer().__class__,
+        #                   stainNorm_Reinhard.VahadaneNormalizer().__class__, stainNorm_Reinhard.MacenkoNormalizer().__class__]
+        #if color_norm.__class__ == stainNorm_Reinhard.VahadaneGlobalNormalizer(slide,filtered_coords,patch_size_p).__class__:
+        with open("config.yaml", "r") as f:
+                config = yaml.safe_load(f)
+        save_path = os.path.join(config["paths"]["pth_to_pkl_ckpts"],os.path.basename(ref_slide_path).split('.')[0])
+        # 1 masque de tissus
+        if not(os.path.exists(os.path.join(save_path,'mask.pkl'))):
+                    mask, ref_slide = mask_tissue(ref_slide_path,verbose=False,verbose_path='',n_threshold=4,chanel='saturation')
+                    save_data(save_path,{'mask':mask})
+        else:
+                    mask = load_data(save_path,'mask')
+                    ref_slide = op.OpenSlide(ref_slide_path)
+        #    # 2 decoupe de coordonnées des patchs
+            
+        if not(os.path.exists(os.path.join(save_path,'filtered_coords.pkl')) and os.path.exists(os.path.join(save_path,'patch_size_p.pkl'))):
+                    ref_filtered_coords,ref_patch_size_p = get_patch_coords(ref_slide,mask,size=(280,280),step=(1,1),verbose=False,verbose_path='')
+                    save_data(save_path,{'filtered_coords':ref_filtered_coords,'patch_size_p':ref_patch_size_p})
+        else:
+                    ref_filtered_coords = load_data(save_path,'filtered_coords')
+                    ref_patch_size_p = load_data(save_path,'patch_size_p')
+        color_norm.fit(op.OpenSlide(ref_slide_path),ref_filtered_coords,ref_patch_size_p)
+        #elif color_norm.__class__ in requires_patch:
+        #     color_norm.fit(plt.imread(ref_patch_path))
+        #else:
+        #    color_norm.fit(op.OpenSlide(ref_slide_path))
+        self.norm = color_norm
+
 
     def __len__(self):
         return len(self.coords)

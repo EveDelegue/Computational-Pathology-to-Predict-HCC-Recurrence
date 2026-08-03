@@ -14,6 +14,8 @@ from skimage.filters import threshold_multiotsu
 from sklearn.decomposition import NMF
 import torch
 from stainx import Reinhard, Macenko, HistogramMatching
+import warnings
+warnings.filterwarnings("ignore")
 
 ### Some functions ###
 
@@ -293,7 +295,7 @@ class ZeroOneNormalizer(object):
     def fit(self):
         pass
 
-    def transform(self, I:np.array):
+    def transform(self, I:np.ndarray):
         I = I.astype(float)
         norm = 255*(I - I.min()) / (I.max() - I.min())
         return norm.astype(np.uint8)
@@ -344,13 +346,80 @@ class DummyNormalizer(object):
     def transform(self, I):
         return I
 
+def get_W_H(patch:np.ndarray):
+    ## fit vahadane on target image
+    mask = notwhite_mask(patch)
+    # first convert RGB to OD
+    OD_target = -np.log(np.clip(patch,1,255)/255)
+    OD_target = OD_target[mask]
+    # fit sparse NMF to get the stain matrix
+    model = NMF(n_components=2,alpha_W=0.1,l1_ratio=1,alpha_H=0,init='nndsvd')
+    H = model.fit_transform(OD_target)
+    W = model.components_
+    norm_W = np.linalg.norm(W,axis=1,keepdims=True)
+    W = W/norm_W
+    H = H*norm_W.T
+    return W,H
+
+def get_slide_W_Hrm(slide:op.OpenSlide,filtered_coords:list[tuple[int,int]],patch_size_p:tuple[int,int], n_sample:int=20):
+    items_coords_id = np.random.choice(len(filtered_coords),n_sample) #n_sample = 20 choosen to be similar to Vahadane original paper
+    items_coords = np.array(filtered_coords)[items_coords_id]
+    list_W = []
+    list_H = []
+    for center in items_coords:
+        x = center[0]-patch_size_p[0]//2
+        y = center[1]-patch_size_p[1]//2 
+        patch = np.array(slide.read_region((y,x),0,patch_size_p).convert("RGB")) #N,M,3 
+        W, _ = get_W_H(patch)#2,3
+        sorted_W = sorted(W,key=lambda x:x[-1])#2,3 # sort by blue intensity
+        list_W.append(sorted_W)
+    W_median = np.median(np.array(list_W),axis=0)
+    for center in items_coords:
+            x = center[0]-patch_size_p[0]//2
+            y = center[1]-patch_size_p[1]//2 
+            patch = np.array(slide.read_region((y,x),0,patch_size_p).convert("RGB")).reshape((-1,3))
+            V = -np.log(np.clip(patch,1,255)/255)
+            H = V @ np.linalg.pinv(W_median)
+            H[H<0]=0
+            list_H.append(H)
+    H_rm = np.percentile(np.array(list_H), 99, axis=(0,1))
+    return W_median, H_rm
+
+class VahadaneGlobalNormalizer(DummyNormalizer):
+    """
+    A Vahadane stain normalization object
+    """
+    def __init__(self,slide,filtered_coords,patch_size_p) -> None:
+        super().__init__()
+        W, _ = get_slide_W_Hrm(slide,filtered_coords,patch_size_p)
+        self.source_W_inv = np.linalg.pinv(W)
+        
+
+
+    def fit(self, slide, filtered_coords, patch_size_p):
+        ## fit vahadane on target image
+        self.target_W, self.H_rm = get_slide_W_Hrm(slide,filtered_coords,patch_size_p)
+
+        
+    def transform(self, I):
+        ## fit vahadane on target image
+        I_shape = I.shape
+        V = -np.log(np.clip(I,1,255)/255).reshape((-1,3))
+        H = V @ self.source_W_inv 
+        H[H<0] = 0 
+        # robust pseudo maximum of H rows
+        H_rm = np.percentile(H, 99, axis=0)
+        
+        # norm 
+        H_norm = H * self.H_rm/H_rm
+        V_norm = H_norm @ self.target_W
+        I_norm = np.exp(-V_norm) * 255
+        return I_norm.astype(np.uint8).reshape(I_shape)
+
 class VahadaneNormalizer(DummyNormalizer):
     """
-    A dummy stain normalization object
+    A Vahadane stain normalization object
     """
-    def __init__(self):
-        self.init_W = np.array([[73, 119, 185.0],[245, 143.0, 204]])
-
 
     def fit(self, target):
         ## fit vahadane on target image

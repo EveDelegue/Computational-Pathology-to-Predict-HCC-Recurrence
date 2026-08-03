@@ -100,7 +100,7 @@ def load_models(pth):
             and moved to CUDA device for GPU computation.
     """
     models = []
-    for i in tqdm(range(1, 6), desc="loading TripleResnet34"):
+    for i in range(1, 6):
         model = IndepResNetModel().cuda()
         weights = torch.load(
             f"{pth}/TripleIndepResNet34_Fold{i}.pt", weights_only=False
@@ -259,7 +259,7 @@ def get_largest_connected_area(masked_image, color):
     return result, area
 
 
-def detect_architectures(slide:op.OpenSlide,filtered_coords:list[tuple[int,int]],patch_size_p:tuple[int,int],model_path:str|os.PathLike,mask:np.ndarray,perc_bpx:float=0.3,perc_wpx:float=0.7, verbose:bool=True,verbose_path:str="brouillons/visuals",color_norm:object=stainNorm_Reinhard.DummyNormalizer())->dict[tuple[int,int], dict[str,int]]:
+def detect_architectures(slide:op.OpenSlide,filtered_coords:list[tuple[int,int]],patch_size_p:tuple[int,int],model_path:str|os.PathLike,mask:np.ndarray,perc_bpx:float=0.3,perc_wpx:float=0.7, verbose:bool=True,verbose_path:str="brouillons/visuals",hospital_name:str='PB')->dict[tuple[int,int], dict[str,int]]:
     """Classifies the patchs between 3 classes : non-tumoral, tumoral non-pejorative and tumoral pejorative.
     
     :param slide: input tile  
@@ -278,16 +278,26 @@ def detect_architectures(slide:op.OpenSlide,filtered_coords:list[tuple[int,int]]
     :type patch_size_p: tuple[int,int]
     :param model_path: path to the 5 networks used 
     :type model_path: str or PathLike
-    :param stain_norm: color normalisation model 
-    :type stain_norm: object
+    :param hospital_name: Hospital of origin for the slide (to choose a color normalisation model)
+    :type hospital_name: str
     """
     
     # load models
     models = load_models(pth=model_path) # were they trained on an external dataset ?
     # load data
     device="cuda" if torch.cuda.is_available() else "cpu"
-
-    Data = MultiscaleSet(slide,filtered_coords,patch_size_p,device=device,color_norm=color_norm)
+    #if hospital_name == 'BJ': 
+    #    Data = MultiscaleSet(slide,filtered_coords,patch_size_p,device=device,color_norm=stainNorm_Reinhard.Normalizer())
+    #    if verbose:
+    #        print('using Reinhard normalisation')
+    #elif hospital_name == 'HM':
+    Data = MultiscaleSet(slide,filtered_coords,patch_size_p,device=device,color_norm=stainNorm_Reinhard.VahadaneGlobalNormalizer(slide,filtered_coords,patch_size_p))
+    #    if verbose:
+    #        print('using Vahadane normalisation')
+    #else:
+    #    Data = Data = MultiscaleSet(slide,filtered_coords,patch_size_p,device=device,color_norm=stainNorm_Reinhard.DummyNormalizer())
+    #    if verbose:
+    #        print('using no normalisation')
     #Data = MultiscaleSet(slide,filtered_coords,patch_size_p,device="cuda" if torch.cuda.is_available() else "cpu")
     loader = DataLoader(Data)
     # create a pandas dataframe for the output
