@@ -1,5 +1,5 @@
 from torch.utils.data import Dataset
-from utils.Stain_Normalization import stainNorm_Reinhard
+from utils.Stain_Normalization import stainNorm
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
@@ -39,7 +39,50 @@ class ImageSet_2(Dataset):
         return imgs
     
 class MultiscaleSet(Dataset):
-    def __init__(self, slide,filtered_coords, patch_size_p,device,ref_slide_path="data/WSIs/PB/Patient 63/63A.mrxs" ,ref_patch_path='notebooks/HES__5.jpeg', color_norm:object=stainNorm_Reinhard.ModifiedNormalizer(),verbose=False):
+    def __init__(self, slide,filtered_coords, patch_size_p,device,verbose=False,color_norm=stainNorm.DummyNormalizer()):
+        self.coords = filtered_coords
+        self.slide = slide
+        self.patch_size_p = patch_size_p
+        self.device = device
+        self.verbose = verbose
+        self.norm = color_norm
+    def __len__(self):
+        return len(self.coords)
+
+    def __getitem__(self,idx):
+        # read the patch
+        center = self.coords[idx]
+        x = center[0]-self.patch_size_p[0]//2
+        y = center[1]-self.patch_size_p[1]//2 
+        patch = np.array(self.slide.read_region((y,x),0,self.patch_size_p).convert("RGB"))
+        if self.verbose:
+            plt.imsave('og.png',np.array(patch))
+        # normalize it
+        patch = self.norm.transform(patch)
+        if self.verbose:
+            plt.imsave('reinhard.png',np.array(patch))
+        # compute the 3 rescaled versions
+        res3 = patch.shape[0]  # 1152 626 1094
+        res2 = int(res3 / 1.5)
+        res1 = int(res2 / 1.5)  # 512 278 486
+        # find the center
+        center_x, center_y = patch.shape[0] // 2, patch.shape[1] // 2
+        # center crop the patch for the two smaller resolutions
+        img_1 = patch[center_x - res1 // 2 : center_x + res1 // 2, center_y - res1 // 2 : center_y + res1 // 2]
+        img_2 = patch[center_x - res2 // 2 : center_x + res2 // 2, center_y - res2 // 2 : center_y + res2 // 2]
+        # resize the bigger resolutions to the smaller
+        img_2 = (Image.fromarray(img_2)).resize((res1, res1), Image.Resampling.LANCZOS)
+        img_3 = (Image.fromarray(patch)).resize((res1, res1), Image.Resampling.LANCZOS)
+        # put it in a tensor 
+        img_1 = pil_to_tensor(Image.fromarray(img_1)).float().to(self.device)/255 
+        img_2 = pil_to_tensor(img_2).float().to(self.device)/255
+        img_3 = pil_to_tensor(img_3).float().to(self.device)/255
+        return img_1,img_2,img_3,x,y
+
+
+    
+class MultiscaleSet_dummy(Dataset):
+    def __init__(self, slide,filtered_coords, patch_size_p,device,ref_slide_path="data/WSIs/PB/Patient 63/63A.mrxs" ,ref_patch_path='notebooks/HES__5.jpeg', color_norm:object=stainNorm.ModifiedNormalizer(),verbose=False):
         self.coords = filtered_coords
         self.slide = slide
         self.patch_size_p = patch_size_p
@@ -48,29 +91,10 @@ class MultiscaleSet(Dataset):
         #requires_patch = [stainNorm_Reinhard.Normalizer().__class__, stainNorm_Reinhard.ModifiedNormalizer().__class__,
         #                   stainNorm_Reinhard.VahadaneNormalizer().__class__, stainNorm_Reinhard.MacenkoNormalizer().__class__]
         #if color_norm.__class__ == stainNorm_Reinhard.VahadaneGlobalNormalizer(slide,filtered_coords,patch_size_p).__class__:
-        with open("config.yaml", "r") as f:
-                config = yaml.safe_load(f)
-        save_path = os.path.join(config["paths"]["pth_to_pkl_ckpts"],os.path.basename(ref_slide_path).split('.')[0])
-        # 1 masque de tissus
-        if not(os.path.exists(os.path.join(save_path,'mask.pkl'))):
-                    mask, ref_slide = mask_tissue(ref_slide_path,verbose=False,verbose_path='',n_threshold=4,chanel='saturation')
-                    save_data(save_path,{'mask':mask})
-        else:
-                    mask = load_data(save_path,'mask')
-                    ref_slide = op.OpenSlide(ref_slide_path)
-        #    # 2 decoupe de coordonnées des patchs
-            
-        if not(os.path.exists(os.path.join(save_path,'filtered_coords.pkl')) and os.path.exists(os.path.join(save_path,'patch_size_p.pkl'))):
-                    ref_filtered_coords,ref_patch_size_p = get_patch_coords(ref_slide,mask,size=(280,280),step=(1,1),verbose=False,verbose_path='')
-                    save_data(save_path,{'filtered_coords':ref_filtered_coords,'patch_size_p':ref_patch_size_p})
-        else:
-                    ref_filtered_coords = load_data(save_path,'filtered_coords')
-                    ref_patch_size_p = load_data(save_path,'patch_size_p')
-        color_norm.fit(op.OpenSlide(ref_slide_path),ref_filtered_coords,ref_patch_size_p)
         #elif color_norm.__class__ in requires_patch:
         #     color_norm.fit(plt.imread(ref_patch_path))
         #else:
-        #    color_norm.fit(op.OpenSlide(ref_slide_path))
+        color_norm.fit(ref_patch_path)
         self.norm = color_norm
 
 
@@ -106,3 +130,6 @@ class MultiscaleSet(Dataset):
         img_2 = pil_to_tensor(img_2).float().to(self.device)/255
         img_3 = pil_to_tensor(img_3).float().to(self.device)/255
         return img_1,img_2,img_3,x,y
+
+
+       

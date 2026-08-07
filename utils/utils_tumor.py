@@ -7,12 +7,11 @@ import os
 import matplotlib.pyplot as plt
 from PIL import Image
 from utils.model_archi import IndepResNetModel
-from utils.ImageSet import MultiscaleSet
-from utils.utils import get_Bright_Dark_perc
+from utils.ImageSet import MultiscaleSet, MultiscaleSet_dummy
 from torch.utils.data import DataLoader
 import pandas as pds
 from torchvision.utils import save_image
-from utils.Stain_Normalization import stainNorm_Reinhard
+from utils.Stain_Normalization import stainNorm
 
 pej_color = np.array([220, 20, 60])  # crimson     #DC143C
 non_pej_color = np.array([255, 215, 0])  # gold       #FFD700
@@ -259,11 +258,11 @@ def get_largest_connected_area(masked_image, color):
     return result, area
 
 
-def detect_architectures(slide:op.OpenSlide,filtered_coords:list[tuple[int,int]],patch_size_p:tuple[int,int],model_path:str|os.PathLike,mask:np.ndarray,perc_bpx:float=0.3,perc_wpx:float=0.7, verbose:bool=True,verbose_path:str="brouillons/visuals",hospital_name:str='PB')->dict[tuple[int,int], dict[str,int]]:
+def detect_architectures_dummy(slide:op.OpenSlide,filtered_coords:list[tuple[int,int]],patch_size_p:tuple[int,int],model_path:str|os.PathLike,mask:np.ndarray,perc_bpx:float=0.3,perc_wpx:float=0.7, verbose:bool=False,verbose_path:str="brouillons/visuals",hospital_name:str='PB',batch_size:int=8)->dict[tuple[int,int], dict[str,int]]:
     """Classifies the patchs between 3 classes : non-tumoral, tumoral non-pejorative and tumoral pejorative.
     
-    :param slide: input tile  
-    :type tile_path: OpenSlide
+    :param slide: input tile 
+    :type slide: op.Openslide 
     :param verbose_path: path for intermediate figures. Default = "brouillons/visuals"
     :type verbose_path: str
     :param verbose: if we wish to show intermediate plots. Default = False 
@@ -283,15 +282,16 @@ def detect_architectures(slide:op.OpenSlide,filtered_coords:list[tuple[int,int]]
     """
     
     # load models
-    models = load_models(pth=model_path) # were they trained on an external dataset ?
+    models = load_models(pth=model_path)
     # load data
     device="cuda" if torch.cuda.is_available() else "cpu"
+    ## init dataset
     #if hospital_name == 'BJ': 
     #    Data = MultiscaleSet(slide,filtered_coords,patch_size_p,device=device,color_norm=stainNorm_Reinhard.Normalizer())
     #    if verbose:
     #        print('using Reinhard normalisation')
     #elif hospital_name == 'HM':
-    Data = MultiscaleSet(slide,filtered_coords,patch_size_p,device=device,color_norm=stainNorm_Reinhard.VahadaneGlobalNormalizer(slide,filtered_coords,patch_size_p))
+    Data = MultiscaleSet_dummy(slide,filtered_coords,patch_size_p,device=device,color_norm=stainNorm.DummyNormalizer())
     #    if verbose:
     #        print('using Vahadane normalisation')
     #else:
@@ -299,7 +299,7 @@ def detect_architectures(slide:op.OpenSlide,filtered_coords:list[tuple[int,int]]
     #    if verbose:
     #        print('using no normalisation')
     #Data = MultiscaleSet(slide,filtered_coords,patch_size_p,device="cuda" if torch.cuda.is_available() else "cpu")
-    loader = DataLoader(Data)
+    loader = DataLoader(Data,batch_size=batch_size)
     # create a pandas dataframe for the output
     tumor_dict = {}
     if verbose:
@@ -308,30 +308,102 @@ def detect_architectures(slide:op.OpenSlide,filtered_coords:list[tuple[int,int]]
     # apply model to the data
     with torch.no_grad():
         for img_1,img_2,img_3,x,y in tqdm(loader):
-            # check if not too much black or white
-            wpx, bpx = get_Bright_Dark_perc(img_3) # compute the black/white ratio
-            if wpx < perc_wpx and bpx < perc_bpx: # if not too much white and not too much black
                 # compute probabilities for each model
                 list_probas = []
                 for model in models:
                     model.eval()
-                    list_probas.append(torch.softmax(model(img_1, img_2, img_3), dim=1))
+                    list_probas.append(torch.softmax(model(img_1, img_2, img_3), dim=1).unsqueeze(0))
                 probas = torch.cat(list_probas)
                 # ensemble the output with a harmonic mean (see Deep Learning Classification and Quantification of Pejorative and Nonpejorative Architectures in Resected Hepatocellular Carcinoma from Digital Histopathologic Images)
                 mean_proba = len(probas) / ((1 / (probas + 1e-8)).sum(dim=0))
                 # find more likely class
-                preds = int(mean_proba.softmax(0).argmax(0)) 
+                preds = mean_proba.softmax(1).argmax(1) 
                 # store in a dictionnary
-                x,y = int(x),int(y)
-                tumor_dict[(x,y)] = {"architecture":preds}
-                # visualise result
-                if verbose:
-                    # show 5 patchs for each class
-                    p = np.random.uniform()
-                    if (p<(100/len(loader))) and (class_dict[preds] < 5):
-                        os.makedirs(os.path.join(verbose_path,f'class_{preds}'),exist_ok=True)
-                        save_image(img_3,os.path.join(verbose_path,f'class_{preds}',f'x_{x}_y_{y}.png'))
-                        class_dict[int(preds)]+=1
+                for i in range(len(x)):
+                    x_i,y_i,pred = int(x[i]),int(y[i]),int(preds[i])
+                    tumor_dict[(x_i,y_i)] = {"architecture":pred}
+                    # visualise result
+                    if verbose:
+                        # show 5 patchs for each class
+                        p = np.random.uniform()
+                        if (p<(100/len(Data))) and (class_dict[pred] < 5):
+                            os.makedirs(os.path.join(verbose_path,f'class_{pred}'),exist_ok=True)
+                            save_image(img_3[i],os.path.join(verbose_path,f'class_{pred}',f'x_{x_i}_y_{y_i}.png'))
+                            class_dict[int(pred)]+=1
+    # visualise whole slide
+    if verbose:
+        thumbnail = np.array(slide.get_thumbnail(slide.level_dimensions[-1]))
+        rescaling_factor = slide.level_downsamples[-1]
+        rescaled_p_sz =  (np.array(patch_size_p)//(rescaling_factor)).astype(int)
+        for coords,prediction in tumor_dict.items():
+            rescaled_coords = (np.array(coords)//rescaling_factor).astype(int)
+            thumbnail[rescaled_coords[0]: rescaled_coords[0]+rescaled_p_sz[0], rescaled_coords[1]: rescaled_coords[1]+rescaled_p_sz[1]] = [0,0,0]
+            thumbnail[rescaled_coords[0]: rescaled_coords[0]+rescaled_p_sz[0], rescaled_coords[1]: rescaled_coords[1]+rescaled_p_sz[1],prediction["architecture"]] = 255
+        plt.imsave(os.path.join(verbose_path,'tumor_pred.png'),thumbnail)
+
+    return tumor_dict
+
+
+
+def detect_architectures(slide:op.OpenSlide,filtered_coords:list[tuple[int,int]],patch_size_p:tuple[int,int],model_path:str|os.PathLike, verbose:bool=False,verbose_path:str="brouillons/visuals",batch_size:int=8,norm_dict:dict={})->dict[tuple[int,int], dict[str,int]]:
+    """Classifies the patchs between 3 classes : non-tumoral, tumoral non-pejorative and tumoral pejorative.
+    :param slide: input tile  
+    :type slide: OpenSlide
+    :param filtered_coords: coordinates of the patchs 
+    :type filtered_coords: list[tuple]
+    :param patch_size_p: patch size 
+    :type patch_size_p: tuple[int,int]
+    :param model_path: path to the 5 networks used 
+    :type model_path: str or PathLike
+    :param verbose: if we wish to show intermediate plots. Default = False 
+    :type verbose: bool
+    :param verbose_path: path for intermediate figures. Default = "brouillons/visuals"
+    :type verbose_path: str
+    :param batch_size: the size of a batch for neural network inference default = 8
+    :type batch_size: int
+    :param norm_dict: dictionary of data used for normalization process
+    :type norm_dict: dict[str, any ]
+    """
+    # load models
+    models = load_models(pth=model_path)
+    # load data
+    device="cuda" if torch.cuda.is_available() else "cpu"
+    # init normalization
+    color_norm=stainNorm.VahadaneGlobalNormalizerW(norm_dict["W"],norm_dict["H_rm"])
+    color_norm.fit(norm_dict["ref_W"],norm_dict["ref_H_rm"])
+    ## init dataset
+    Data = MultiscaleSet(slide,filtered_coords,patch_size_p,device=device,color_norm=color_norm)
+    loader = DataLoader(Data,batch_size=batch_size)
+    # create a pandas dataframe for the output
+    tumor_dict = {}
+    if verbose:
+        # create visuals 
+        class_dict = {0:0,1:0,2:0}
+    # apply model to the data
+    with torch.no_grad():
+        for img_1,img_2,img_3,x,y in tqdm(loader):
+                # compute probabilities for each model
+                list_probas = []
+                for model in models:
+                    model.eval()
+                    list_probas.append(torch.softmax(model(img_1, img_2, img_3), dim=1).unsqueeze(0))
+                probas = torch.cat(list_probas)
+                # ensemble the output with a harmonic mean (see Deep Learning Classification and Quantification of Pejorative and Nonpejorative Architectures in Resected Hepatocellular Carcinoma from Digital Histopathologic Images)
+                mean_proba = len(probas) / ((1 / (probas + 1e-8)).sum(dim=0))
+                # find more likely class
+                preds = mean_proba.softmax(1).argmax(1) 
+                # store in a dictionnary
+                for i in range(len(x)):
+                    x_i,y_i,pred = int(x[i]),int(y[i]),int(preds[i])
+                    tumor_dict[(x_i,y_i)] = {"architecture":pred}
+                    # visualise result
+                    if verbose:
+                        # show 5 patchs for each class
+                        p = np.random.uniform()
+                        if (p<(100/len(Data))) and (class_dict[pred] < 5):
+                            os.makedirs(os.path.join(verbose_path,f'class_{pred}'),exist_ok=True)
+                            save_image(img_3[i],os.path.join(verbose_path,f'class_{pred}',f'x_{x_i}_y_{y_i}.png'))
+                            class_dict[int(pred)]+=1
     # visualise whole slide
     if verbose:
         thumbnail = np.array(slide.get_thumbnail(slide.level_dimensions[-1]))
@@ -361,11 +433,17 @@ def mask_tumor(result_dict:dict[tuple[int,int], dict[str,int]],patch_size_p:tupl
     :type patch_size_p: tuple[int,int]
     """
 
-    # load thumbnail
-    thumbnail = np.array(slide.get_thumbnail(slide.level_dimensions[-1]))
-    tumor_thumbnail = np.zeros_like(thumbnail) # 3 chanel image, each chanel will be a class 
+    # load thumbnail such that 1 pixel is one patch
+    size_image = slide.dimensions # full rez size
+    size_patch = patch_size_p
+    dezoom_image_size = (int(size_image[0]/size_patch[0]), int(size_image[1]/size_patch[1])) # size of an image where 1 patch is 1 pixel
+    thumbnail = np.array(slide.get_thumbnail(dezoom_image_size))
+    if verbose:
+        plt.imsave(os.path.join(verbose_path,'thumbnail_1.png'),thumbnail)
+    # create a mask image
+    tumor_thumbnail = np.zeros_like(thumbnail) # 3 chanel image, each chanel will be for a class 
     # color it depending on the architectures
-    rescaling_factor = slide.level_downsamples[-1]
+    rescaling_factor = max(patch_size_p[0],patch_size_p[1])
     rescaled_p_sz =  (np.array(patch_size_p)/(rescaling_factor)).astype(int)
     # init class counter
     class_dict = {0:0,1:0,2:0}
@@ -393,7 +471,18 @@ def mask_tumor(result_dict:dict[tuple[int,int], dict[str,int]],patch_size_p:tupl
     opened_tumor = cv2.morphologyEx(closed_tumor, cv2.MORPH_OPEN, open_kernel)
     if verbose:
         plt.imsave(os.path.join(verbose_path,'tumor_opened.png'),opened_tumor*255)
-    
+
+    # visualize the resulting contours
+    if verbose:
+            # draw tumor contours over thumbnail
+            thumbnail_contours = thumbnail.copy()
+            for chanel in range(3):
+                contours,_ = cv2.findContours(opened_tumor[:,:,chanel],cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                color=[0,0,0]
+                color[chanel] = 255
+                cv2.drawContours(thumbnail_contours,contours,-1,color,1)
+                plt.imsave(os.path.join(verbose_path,'tumor_contours.png'),thumbnail_contours)
+
     pej_chanel = opened_tumor[:,:,2]
     non_pej_chanel = opened_tumor[:,:,1]
     non_tum_chanel = opened_tumor[:,:,0]

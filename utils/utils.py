@@ -87,8 +87,8 @@ def get_Bright_Dark_perc(image, bright_threshold:float=0.95, dark_threshold:floa
     """
     grayscale_image = rgb_to_grayscale(image)
     # Count bright/white and dark/black pixels
-    bright_pixels = torch.sum(grayscale_image > bright_threshold)
-    dark_pixels = torch.sum(grayscale_image < dark_threshold)
+    bright_pixels = torch.sum(grayscale_image > bright_threshold,dim=(1,2,3))
+    dark_pixels = torch.sum(grayscale_image < dark_threshold,dim=(1,2,3))
     # Calculate percentages
     total_pixels = grayscale_image.shape[-2]*grayscale_image.shape[-1]
     bright_percentage = bright_pixels / total_pixels

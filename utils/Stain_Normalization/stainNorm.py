@@ -15,6 +15,7 @@ from sklearn.decomposition import NMF
 import torch
 from stainx import Reinhard, Macenko, HistogramMatching
 import warnings
+import tqdm
 warnings.filterwarnings("ignore")
 
 ### Some functions ###
@@ -366,7 +367,7 @@ def get_slide_W_Hrm(slide:op.OpenSlide,filtered_coords:list[tuple[int,int]],patc
     items_coords = np.array(filtered_coords)[items_coords_id]
     list_W = []
     list_H = []
-    for center in items_coords:
+    for center in tqdm.tqdm(items_coords):
         x = center[0]-patch_size_p[0]//2
         y = center[1]-patch_size_p[1]//2 
         patch = np.array(slide.read_region((y,x),0,patch_size_p).convert("RGB")) #N,M,3 
@@ -415,6 +416,41 @@ class VahadaneGlobalNormalizer(DummyNormalizer):
         V_norm = H_norm @ self.target_W
         I_norm = np.exp(-V_norm) * 255
         return I_norm.astype(np.uint8).reshape(I_shape)
+
+
+class VahadaneGlobalNormalizerW(DummyNormalizer):
+    """
+    A Vahadane stain normalization object
+    """
+    def __init__(self,W,H_rm) -> None:
+        super().__init__()
+        self.source_W_inv = np.linalg.pinv(W)
+        self.H_rm = H_rm
+        self.shape = None
+
+    def fit(self, ref_W,ref_H_rm):
+        ## fit vahadane on target image
+        self.target_W, self.H_rm = ref_W, ref_H_rm
+
+        
+    def transform(self, I):
+        ## fit vahadane on target image
+        if self.shape==None:
+            self.shape = I.shape
+
+        V = -np.log(np.clip(I,1,255)/255).reshape((-1,3))
+        H = V @ self.source_W_inv 
+        H[H<0] = 0
+        # robust pseudo maximum of H rows
+        H_rm = np.percentile(H, 99, axis=0)
+        
+        # norm 
+        H_norm = H * self.H_rm/H_rm
+        V_norm = H_norm @ self.target_W
+        I_norm = np.exp(-V_norm) * 255
+        return I_norm.astype(np.uint8).reshape(self.shape)
+
+
 
 class VahadaneNormalizer(DummyNormalizer):
     """

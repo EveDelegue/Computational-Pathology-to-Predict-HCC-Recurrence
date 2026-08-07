@@ -27,7 +27,7 @@ visualization:
 
 # Model parameters
 model:
-  batch_size: 32
+  batch_size: 64
   path_triple_resnets: "models"
 
 nucleus_model:
@@ -43,8 +43,8 @@ paths:
   pth_to_models: "data/models"
   pth_to_tab: "data/tabs"
   pth_to_tumor_ckpts: "checkpoints/tumor_checkpoints"
-  pth_to_pkl_ckpts: "checkpoints/pickles"
-  pth_to_verbose: "brouillons/verbose"
+  pth_to_pkl_ckpts: "checkpoints/VahadaneW"
+  pth_to_verbose: "brouillons/VahadaneW"
   pth_to_inflams_dats: "checkpoints/inflam_dats"
   pth_to_inflams_ckpts: "checkpoints/inflam_checkpoints"
   pth_to_nuc_ckpts: "checkpoints/nucleus_checkpoints"
@@ -65,6 +65,7 @@ staining:
   hemato_2: [123, 153, 198] #H_2
   lambda: 1.15e-1
   poids: [1.5, 1]
+  ref_slide: 'data/WSIs/PB/Patient 63/63A.mrxs'
 
 # nuclear features
 nuc_features: ["density", "mean nucleus area","anisocaryose","nucleocyto index" ]
