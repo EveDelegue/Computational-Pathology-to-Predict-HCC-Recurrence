@@ -460,14 +460,14 @@ def mask_tumor(result_dict:dict[tuple[int,int], dict[str,int]],patch_size_p:tupl
 
     ## clean the contours
     # fill in the holes 
-    close_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, tuple(2*rescaled_p_sz))  
+    close_kernel = cv2.getStructuringElement(cv2.MORPH_DIAMOND, tuple(3*rescaled_p_sz))  
     # clean tissue mask
     closed_tumor = cv2.morphologyEx(tumor_thumbnail, cv2.MORPH_CLOSE, close_kernel)
     if verbose:
         plt.imsave(os.path.join(verbose_path,'tumor_closed.png'),closed_tumor*255)
     
     # remove small objects
-    open_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, tuple(2*rescaled_p_sz))
+    open_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, tuple(3*rescaled_p_sz))
     opened_tumor = cv2.morphologyEx(closed_tumor, cv2.MORPH_OPEN, open_kernel)
     if verbose:
         plt.imsave(os.path.join(verbose_path,'tumor_opened.png'),opened_tumor*255)
@@ -509,7 +509,28 @@ def mask_tumor(result_dict:dict[tuple[int,int], dict[str,int]],patch_size_p:tupl
         if verbose:
             plt.imsave(os.path.join(verbose_path,'largest_non_pej.png'),mask)
         area_non_pej = cv2.contourArea(largest_contour)
-    
+
+    tumor_chanel = pej_chanel+non_pej_chanel - pej_chanel*non_pej_chanel
+    # compute frontier
+    dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, tuple(5*rescaled_p_sz))
+    dilated_ntumor = cv2.morphologyEx(non_tum_chanel, cv2.MORPH_DILATE, dilate_kernel)
+    dilated_tumor = cv2.morphologyEx(tumor_chanel, cv2.MORPH_DILATE, dilate_kernel)
+    eroded_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, tuple(5*rescaled_p_sz))
+    eroded_ntumor = cv2.morphologyEx(non_tum_chanel, cv2.MORPH_ERODE, eroded_kernel)
+    eroded_tumor = cv2.morphologyEx(tumor_chanel, cv2.MORPH_ERODE, eroded_kernel)
+    frontier_tumor = dilated_tumor-eroded_tumor
+    frontier_ntumor = dilated_ntumor-eroded_ntumor
+    frontier = frontier_tumor*frontier_ntumor
+    if verbose:
+                plt.imsave(os.path.join(verbose_path,'frontier_tum.png'),frontier_tumor)
+                plt.imsave(os.path.join(verbose_path,'frontier_ntum.png'),frontier_ntumor)
+                plt.imsave(os.path.join(verbose_path,'frontier.png'),frontier)
+                thumbnail_frontiers = thumbnail.copy()
+                contours,_ = cv2.findContours(frontier,cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                cv2.drawContours(thumbnail_frontiers,contours,-1,(0,255,0),1)
+                contours,_ = cv2.findContours(tumor_chanel,cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                cv2.drawContours(thumbnail_frontiers,contours,-1,(0,0,255),1)
+                plt.imsave(os.path.join(verbose_path,'tumor_out.png'),thumbnail_frontiers)
     #return in_mask,out_mask
-    return 0,0
+    return tumor_chanel,frontier
     
