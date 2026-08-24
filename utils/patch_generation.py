@@ -53,18 +53,21 @@ def get_patch_coords(slide:op.OpenSlide,mask:np.ndarray,size:tuple[int,int]=(280
     full_coordinates = np.arange(0,dim_0[0],patch_size_p[0]*step[0],), np.arange(0,dim_0[1],patch_size_p[1]*step[1]) # any possible patch coords in x and y
     full_coords = list(itertools.product(full_coordinates[0],full_coordinates[1])) # set product
     # get downsample factor from thumbnail
-    dezoom_level = slide.level_downsamples[-1]
-    # filter patchs in mask
-    filtered_coords = [(int(y),int(x)) for x,y in full_coords if mask[int(y//dezoom_level),int(x//dezoom_level)]] # only keep if mask[at center] = 1
+    dezoom_level = max(slide.level_dimensions[0][0]/slide.level_dimensions[-1][0], slide.level_dimensions[0][1]/slide.level_dimensions[-1][1])
+    # filter patchs in mask. To avoid dezoomed patchs coords out of the frame, we round under the integer
+    filtered_coords = [(int(y),int(x)) for x,y in full_coords if mask[int(np.floor(y/dezoom_level)) ,int(np.floor(x/dezoom_level))] ] # only keep if mask[at center] = 1
     # filter images with too much white or dark
     bw_filtered_coords = []
-    dezoom_size = (int(patch_size_p[0]//(2*dezoom_level)),int(patch_size_p[1]//(2*dezoom_level)))
+    # here we take the downsampled patch. To avoid patchs of size 0 we round above the integer 
+    dezoom_size = (int(np.ceil(patch_size_p[0]/(2*dezoom_level))),int(np.ceil(patch_size_p[1]/(2*dezoom_level))))
     total_pixels = 4*dezoom_size[0]*dezoom_size[1]
     for x,y in filtered_coords:
         # observe a sub_image
         sub_img = gray_thumbnail[int(x//dezoom_level)-dezoom_size[0]:int(x//dezoom_level)+dezoom_size[0],int(y//dezoom_level)-dezoom_size[1]:int(y//dezoom_level)+dezoom_size[1]]/255
+        # compute the black and white ratio in the sub image
         wpx = np.sum(sub_img>bright_threshold)/total_pixels
         bpx = np.sum(sub_img< dark_threshold)/total_pixels
+        # filter out the images that are too white or too black
         if wpx < perc_wpx and bpx < perc_bpx:
             bw_filtered_coords.append((x,y))
     if verbose:
