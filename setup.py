@@ -28,7 +28,8 @@ setup(
         "openslide-python",
         "termcolor",
         "seaborn","scikit-learn","catboost",
-        "xgboost"
+        "xgboost",
+        "scikit-learn"
     ],
     include_package_data=True,
     python_requires=">=3.8",

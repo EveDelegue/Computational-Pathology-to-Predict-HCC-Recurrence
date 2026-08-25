@@ -14,9 +14,14 @@ data_pth = config["paths"]["pth_to_wsi"]
 ref_slide_pth = config["staining"]["ref_slide"]
 ref_save_path = os.path.join(config["paths"]["pth_to_pkl_ckpts"],os.path.basename(ref_slide_pth).split('.')[0])
 
-# list slides
-slides_list = ['63A.mrxs'] + os.listdir(data_pth)
-slides_list = [os.path.join(data_pth,slide) for slide in slides_list if '.mrxs' in slide]
+hospital_list = os.listdir(data_pth)
+patients_list = []
+for hospital in hospital_list:
+        patients_list.extend([os.path.join(data_pth,hospital,patient) for patient in os.listdir(os.path.join(data_pth,hospital))])
+
+slides_list = [ref_slide_pth] # process ref slide first
+for patient in patients_list:
+        slides_list.extend([os.path.join(patient,slide) for slide in os.listdir(patient) if ((('.mrxs' in slide) or ('.ndpi' in slide)) and (slide!=os.path.basename(ref_slide_pth)))])
 
 # loop through the slides
 for image_path in slides_list:
@@ -35,6 +40,7 @@ for image_path in slides_list:
     else:
         # else load it
         mask = load_data(save_path,'mask')
+        breakpoint()
         slide = op.OpenSlide(image_path)
 
     # 2 decoupe de coordonnées des patchs

@@ -13,7 +13,7 @@ import cv2
 from skimage.filters import threshold_multiotsu
 from sklearn.decomposition import NMF
 import torch
-from stainx import Reinhard, Macenko, HistogramMatching
+#from stainx import Reinhard, Macenko, HistogramMatching
 import warnings
 import tqdm
 warnings.filterwarnings("ignore")
@@ -495,7 +495,7 @@ class VahadaneNormalizer(DummyNormalizer):
         norm[mask] = I_norm
         return norm.astype(np.uint8)
 
-class MacenkoNormalizer(object):
+'''class MacenkoNormalizer(object):
     """
     A dummy stain normalization object
     """
@@ -508,5 +508,5 @@ class MacenkoNormalizer(object):
 
     def transform(self, I):
         torch_I = torch.as_tensor(I).permute(2,0,1).unsqueeze(0)
-        return self.normalizer.transform(torch_I).squeeze().permute(1,2,0).cpu().numpy()
+        return self.normalizer.transform(torch_I).squeeze().permute(1,2,0).cpu().numpy()'''
 
