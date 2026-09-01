@@ -504,6 +504,8 @@ def mask_tumor(result_dict:dict[tuple[int,int], dict[str,int]],patch_size_p:tupl
         if verbose:
             plt.imsave(os.path.join(verbose_path,'largest_pej.png'),mask)
         area_pej = cv2.contourArea(largest_contour)
+    else:
+        area_pej=0
     
     # detect largest non-pej contour
     contours, _ = cv2.findContours(non_pej_chanel, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -516,7 +518,9 @@ def mask_tumor(result_dict:dict[tuple[int,int], dict[str,int]],patch_size_p:tupl
         if verbose:
             plt.imsave(os.path.join(verbose_path,'largest_non_pej.png'),mask)
         area_non_pej = cv2.contourArea(largest_contour)
-
+    else:
+        area_non_pej = 0
+    
     tumor_chanel = pej_chanel+non_pej_chanel - pej_chanel*non_pej_chanel
     # compute frontier
     dilate_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, tuple(5*rescaled_p_sz))

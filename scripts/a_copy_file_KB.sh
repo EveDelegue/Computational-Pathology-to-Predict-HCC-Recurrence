@@ -1,5 +1,5 @@
 #!/bin/bash
-wsi_path="/mnt/wwn-0x50014ee2c13881aa-part1/patients_1_89/Patient_*"
+wsi_path="/mnt/wwn-0x50014ee2c13881aa-part1/patients_77_89/Patient_*"
 
 
 for patient_dir in $wsi_path; do

@@ -29,7 +29,7 @@ for image_path in slides_list:
     save_path = os.path.join(config["paths"]["pth_to_pkl_ckpts"],os.path.basename(image_path).split('.')[0])
     visual_path = os.path.join(config["paths"]["pth_to_verbose"],os.path.basename(image_path).split('.')[0])
     #### Patch classification (Pej vs non pej vs sain)
-
+    print(image_path)
     ## extraction des patchs
 
     # 1 masque de tissus
@@ -92,7 +92,7 @@ for image_path in slides_list:
         H_rm = load_data(save_path,'H_rm')
 
     # 4 create tumor mask
-    if not(os.path.exists(os.path.join(save_path,'in_mask.pkl')) and os.path.exists(os.path.join(save_path,'area_pej.pkl'))):
+    if not(os.path.exists(os.path.join(save_path,'in_mask.pkl')) and os.path.exists(os.path.join(save_path,'area_non_pej.pkl'))):
             # if not done yet
             in_mask,out_mask, P_ratio, area_pej, area_non_pej, tumor_dict_2 = mask_tumor(tumor_dict,patch_size_p,slide=slide,verbose=True,verbose_path=visual_path)
             save_data(save_path,{'in_mask':in_mask, 'out_mask':out_mask, 'P_ratio':P_ratio, 'area_pej':area_pej, 'area_non_pej': area_non_pej, 'tumor_dict_2':tumor_dict_2})

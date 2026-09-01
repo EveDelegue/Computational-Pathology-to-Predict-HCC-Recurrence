@@ -55,17 +55,6 @@ __Authors:__ Astrid Laurent-Bellue*, Aymen Sadraoui*, Aurélie Beaufrère, Julie
     │    ├── TripleIndepResNet34_Fold3.pt
     │    ├── TripleIndepResNet34_Fold4.pt
     │    └── TripleIndepResNet34_Fold5.pt
-    ├── 📓notebooks
-        ├── EDA.ipynb
-        ├── STEP1_gen_patches_from_WSI.ipynb
-        ├── STEP2_detect_tumor_from_WSI.ipynb
-        ├── STEP3_detect_inflammatory_cells.ipynb
-        ├── STEP4_detect_nucleus_and_gen_features.ipynb
-        ├── STEP5_gen_nuclear_features.ipynb
-        ├── STEP6_gen_inflammatory_features.ipynb
-        ├── STEP7_gen_tumor_features.ipynb
-        ├── STEP8_combine_all_features.ipynb
-        └── STEP9_build_and_run_model.ipynb
     ├── 📊results
     │    ├── 📁overview_preds_inflam_wsis
     │    ├── 📁overview_preds_tumor_wsis
@@ -142,12 +131,20 @@ git clone https://github.com/EveDelegue/Computational-Pathology-to-Predict-HCC-R
 cd Computational-Pathology-to-Predict-HCC-Recurrence
 ```
 
-Then create a conda env and install the dependencies:
+Then create a virtual env and install the dependencies:
 
 ```
-conda create -n chc_prognosis python=3.11
-conda activate chc_prognosis
+python -m venv .venv
+source .venv/bin/activate
 pip install -e .
+
+# for tumor segmentation
+
+pip install -r requirements_tumor.txt
+
+# for cell segmentation
+
+pip install -r requirements_cells.txt
 ```
 
 ### Experiments
@@ -157,7 +154,6 @@ Use the steps one by one:
 ```
 sh scripts/run_step1.sh
 ```
-
 
 ### Contact
 
