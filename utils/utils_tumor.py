@@ -418,8 +418,13 @@ def detect_architectures(slide:op.OpenSlide,filtered_coords:list[tuple[int,int]]
     return tumor_dict
 
 
-def mask_tumor(result_dict:dict[tuple[int,int], dict[str,int]],patch_size_p:tuple[int,int],slide:op.OpenSlide,verbose:bool=False,verbose_path:str="brouillons/visuals"):
-    """Creates a mask of the inside of the tumoral region, as well as the frontier.
+def mask_tumor(result_dict:dict[tuple[int,int], dict[str,int]],patch_size_p:tuple[int,int],slide:op.OpenSlide,verbose:bool=False,verbose_path:str="brouillons/visuals")->tuple[np.ndarray,np.ndarray , float, float, float, dict[tuple[int,int], dict[str,int]]]:
+    """Creates a mask of the inside of the tumoral region, as well as the frontier. 
+    Also computes tumoral features :
+     - Mean percentage of pejorative architectures for each Whole Slide Image (WSI) and among all WSI of a given patient
+     - Largest connected area of pejorative architecture for each WSI and among all WSI of a given patient
+     - Largest connected area of non-pejorative architecture for each WSI
+
     
     :param result_dict: the result of the tumor architecture detection
     :type result_dict: Dict[tuple[int,int], Dict[str,int]]
@@ -449,6 +454,8 @@ def mask_tumor(result_dict:dict[tuple[int,int], dict[str,int]],patch_size_p:tupl
     class_dict = {0:0,1:0,2:0}
     for coords,prediction in result_dict.items():
             rescaled_coords = (np.array(coords)/rescaling_factor).astype(int)
+            result_dict[coords]['thumb_coords_x'] = rescaled_coords[0]
+            result_dict[coords]['thumb_coords_y'] = rescaled_coords[1]
             # count the frequency of each class 
             class_dict[prediction['architecture']]+=1  
             # put a 1 in the corresponding class
@@ -532,5 +539,7 @@ def mask_tumor(result_dict:dict[tuple[int,int], dict[str,int]],patch_size_p:tupl
                 cv2.drawContours(thumbnail_frontiers,contours,-1,(0,0,255),1)
                 plt.imsave(os.path.join(verbose_path,'tumor_out.png'),thumbnail_frontiers)
     #return in_mask,out_mask
-    return tumor_chanel,frontier
-    
+    return tumor_chanel,frontier , P_ratio, area_pej, area_non_pej, result_dict
+
+
+

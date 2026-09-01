@@ -89,8 +89,6 @@ def get_patch_coords(slide:op.OpenSlide,mask:np.ndarray,size:tuple[int,int]=(280
     return bw_filtered_coords, patch_size_p
 
 
-
-
 def mask_tissue(tile_path:str,verbose:bool=False,verbose_path:str="brouillons/visuals",n_threshold:int=4,chanel:str='saturation')->tuple[np.ndarray,op.OpenSlide]:
     """detect tissue zones in the tile and return a mask
     
@@ -150,3 +148,18 @@ def mask_tissue(tile_path:str,verbose:bool=False,verbose_path:str="brouillons/vi
         cv2.drawContours(blue_tissue,contours,-1,(0,0,255))
         plt.imsave(os.path.join(verbose_path,f"{os.path.basename(tile_path).split('.')[0]}_thumbnail_contours.png"),blue_tissue)
     return thumb_thresh>0, slide
+
+def sample_patchs(tumor_dict:dict[tuple[int,int], dict[str,int]],zone:np.ndarray,proportion:float)->list[tuple[int,int]]:
+    """samples patchs in a zone with a certain proportion
+    :param tumor_dict: the result of the tumor architecture detection
+    :type tumor_dict: Dict[tuple[int,int], Dict[str,int]]
+    :param zone: zone to sample from (mask)  
+    :type tile_path: array
+    :param proportion: proportion of the zone to be sampled
+    :type proportion: float
+    """
+    in_zone_dict = {k:v for k,v in tumor_dict.items() if zone[v['thumb_coords_x'],v['thumb_coords_y']]==1}
+    idxs = np.arange(len(in_zone_dict))
+    sampled_idx = np.random.choice(idxs, size=int(np.ceil( len(idxs)*proportion )) , replace=False)
+    sampled_coords_list = [k for i,(k) in enumerate(in_zone_dict.keys()) if i in sampled_idx]
+    return sampled_coords_list

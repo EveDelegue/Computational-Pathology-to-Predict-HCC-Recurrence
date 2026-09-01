@@ -1,4 +1,4 @@
-from utils.patch_generation import mask_tissue, get_patch_coords
+from utils.patch_generation import mask_tissue, get_patch_coords, sample_patchs
 from utils.utils_tumor import detect_architectures, mask_tumor
 import os
 from utils.utils import save_data, load_data
@@ -92,15 +92,19 @@ for image_path in slides_list:
         H_rm = load_data(save_path,'H_rm')
 
     # 4 create tumor mask
-    if not(os.path.exists(os.path.join(save_path,'in_mask.pkl')) and os.path.exists(os.path.join(save_path,'out_mask.pkl'))):
+    if not(os.path.exists(os.path.join(save_path,'in_mask.pkl')) and os.path.exists(os.path.join(save_path,'area_pej.pkl'))):
             # if not done yet
-            in_mask,out_mask = mask_tumor(tumor_dict,patch_size_p,slide=slide,verbose=True,verbose_path=visual_path)
-            save_data(save_path,{'in_mask':in_mask,'out_mask':out_mask})
+            in_mask,out_mask, P_ratio, area_pej, area_non_pej, tumor_dict_2 = mask_tumor(tumor_dict,patch_size_p,slide=slide,verbose=True,verbose_path=visual_path)
+            save_data(save_path,{'in_mask':in_mask, 'out_mask':out_mask, 'P_ratio':P_ratio, 'area_pej':area_pej, 'area_non_pej': area_non_pej, 'tumor_dict_2':tumor_dict_2})
     else:
             # else load it
             in_mask = load_data(save_path,'in_mask')
             out_mask = load_data(save_path,'out_mask')
+            tumor_dict_2 = load_data(save_path,'tumor_dict_2')
 
     # 5 sample patchs for cell analysis
+    #if not(os.path.exists(os.path.join(save_path,'sampled_patchs.pkl'))):
+    #      sampled_patchs = sample_patchs(in_mask,1/10)
+          
     
    

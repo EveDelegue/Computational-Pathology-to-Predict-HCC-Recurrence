@@ -1,5 +1,6 @@
 import cv2
 import torch
+import openslide as op
 import numpy as np
 from numpy.linalg import pinv
 from skimage import filters
@@ -12,6 +13,12 @@ from skimage.segmentation import watershed
 
 from skimage.feature import peak_local_max
 from scipy import ndimage
+from tqdm import tqdm
+
+from cellseg_models_pytorch.models.cellpose import CellPose
+from utils.Stain_Normalization import stainNorm
+from utils.ImageSet import CellDetectionSet
+from torch.utils.data import DataLoader
 
 def vectorize(im, N=500 * 500):
     N, M, _ = im.shape
@@ -414,3 +421,47 @@ def getNucleusFeatures_2(im,  W, Lambda, model, poids, g_kernel_size = 7, verbos
         plt.imsave(f"{verbose_path}/contour_im0.png", contour_im0)
         plt.imsave(f"{verbose_path}/final_im.png", final_im)
     return final_im, contours
+
+
+def cellsegmentation(slide:op.OpenSlide,sampled_patchs:list[tuple[int,int]],patch_size_p:tuple[int,int],norm_dict:dict,batch_size:int=8,verbose:bool=False,verbose_path:str="brouillons/visuals")->dict:
+    """ Segment nucleus in the sampled patchs
+    :param sampled_patchs: coords of the patch where detection will happen
+    :type sampled_patchs: list[tuple[int,int]]
+    :param slide: input tile  
+    :type slide: OpenSlide
+    :param verbose_path: path for intermediate figures. Default = "brouillons/visuals"
+    :type verbose_path: str
+    :param verbose: if we wish to show intermediate plots. Default = False 
+    :type verbose: bool
+    :param patch_size_p: patch size 
+    :type patch_size_p: tuple[int,int]
+    """
+    # load model
+    model = CellPose.from_pretrained(weights="hgsc_v1_efficientnet_b5")
+    model.set_inference_mode()
+    # read patchs in a dataloader
+    # load data
+    device="cuda" if torch.cuda.is_available() else "cpu"
+    # init normalization
+    color_norm=stainNorm.VahadaneGlobalNormalizerW(norm_dict["W"],norm_dict["H_rm"])
+    color_norm.fit(norm_dict["ref_W"],norm_dict["ref_H_rm"])
+    ## init dataset
+    Data = CellDetectionSet(slide,sampled_patchs,patch_size_p,device=device,color_norm=color_norm)
+    loader = DataLoader(Data,batch_size=batch_size)
+    # apply model to the data
+    result_dict = {}
+    with torch.no_grad():
+        for patch,x,y in tqdm(loader):
+            out = model.post_process(model.predict(patch))
+            for i in range(batch_size):
+                inflam_cells = out['nuc'][i][0]*(out['nuc'][i][1]==2)
+                n_inflam = len(np.unique(inflam_cells))-1 # 2 for inflammatory 
+                neoplastic_cells = out['nuc'][i][0]*(out['nuc'][i][1]==1)
+                n_cells = len(np.unique(neoplastic_cells))-1 # 1 for neoplastic 
+                areas_list = []
+                for cell in np.unique(neoplastic_cells):
+                    if cell!=0:
+                        area = len(neoplastic_cells[neoplastic_cells==cell])
+                        areas_list.append(area)
+                result_dict[(int(x[i]),int(y[i]))] = {'n_inflam':n_inflam, 'n_cells':n_cells, 'areas_list':areas_list}
+    return result_dict
