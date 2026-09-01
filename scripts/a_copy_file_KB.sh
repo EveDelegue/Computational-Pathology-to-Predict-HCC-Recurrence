@@ -13,7 +13,7 @@ for patient_dir in $wsi_path; do
     cp -r $patient_dir $dest_folder
     echo "process"
     #docker exec eve_2 .venv/bin/python brouillons/hello_world.py
-    .venv/bin/python src/expert_feature_extraction.py
+    .venv/bin/python src/expert_tumor_extraction.py
     #### completer le process
 
 

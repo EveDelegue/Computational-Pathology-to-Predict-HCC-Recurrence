@@ -11,27 +11,6 @@ setup(
     # --- Package Configuration ---
     packages=find_packages(),
     # --- Dependencies ---
-    install_requires=[
-        "openpyxl",
-        "torch",
-        "scikit-image",
-        "joblib",
-        "torchvision",
-        "numpy>=1.26.1",
-        "opencv-python==4.8.0.74",
-        "pandas",
-        "PYyaml",
-        "matplotlib",
-        "tqdm",
-        "openslide-bin",
-        "openslide-python",
-        "termcolor",
-        "seaborn","scikit-learn","catboost",
-        "xgboost",
-        "scikit-learn",
-        "cellseg-models-pytorch",
-        "albumentations"
-    ],
     include_package_data=True,
     python_requires=">=3.8",
 )

@@ -1,0 +1,12 @@
+numpy
+openslide-bin
+openslide-python
+matplotlib
+opencv-python>=4.12
+torch
+torchvision
+tqdm
+scikit-image
+scikit-learn
+pyyaml
+pandas

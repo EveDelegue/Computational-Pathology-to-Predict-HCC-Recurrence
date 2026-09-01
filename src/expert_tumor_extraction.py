@@ -1,4 +1,4 @@
-from utils.patch_generation import mask_tissue, get_patch_coords, sample_patchs
+from utils.patch_generation import mask_tissue, get_patch_coords
 from utils.utils_tumor import detect_architectures, mask_tumor
 import os
 from utils.utils import save_data, load_data

@@ -4,7 +4,14 @@ import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
 from torchvision.transforms.functional import pil_to_tensor
-
+from torchvision.transforms import v2
+import openslide as op
+import os
+from utils.utils import save_data,load_data
+from utils.patch_generation import mask_tissue, get_patch_coords
+import yaml
+from albumentations import Resize, Compose
+from cellseg_models_pytorch.transforms.albu_transforms import MinMaxNormalization
 
 class ImageSet(Dataset):
     def __init__(self, data, labels, transforms):
@@ -75,6 +82,36 @@ class MultiscaleSet(Dataset):
         img_3 = pil_to_tensor(img_3).float().to(self.device)/255
         return img_1,img_2,img_3,x,y
 
+class CellDetectionSet(Dataset):
+    def __init__(self, slide,filtered_coords, patch_size_p,device,verbose=False,color_norm=stainNorm.DummyNormalizer()):
+        self.coords = filtered_coords
+        self.slide = slide
+        self.patch_size_p = patch_size_p
+        self.device = device
+        self.verbose = verbose
+        self.norm = color_norm
+        self.transform = Compose([Resize(1024, 1024), MinMaxNormalization()])
+
+
+    def __len__(self):
+        return len(self.coords)
+
+    def __getitem__(self,idx):
+        # read the patch
+        center = self.coords[idx]
+        x = center[0]-self.patch_size_p[0]//2
+        y = center[1]-self.patch_size_p[1]//2 
+        patch = np.array(self.slide.read_region((y,x),0,self.patch_size_p).convert("RGB"))
+        if self.verbose:
+            plt.imsave('og.png',np.array(patch))
+        # normalize it
+        patch = self.norm.transform(patch)
+        if self.verbose:
+            plt.imsave('reinhard.png',np.array(patch))
+        patch = self.transform(image=patch)
+        patch[patch<0]=0
+        return pil_to_tensor(patch),x,y
+    
 class MultiscaleSet_dummy(Dataset):
     def __init__(self, slide,filtered_coords, patch_size_p,device,ref_slide_path="data/WSIs/PB/Patient 63/63A.mrxs" ,ref_patch_path='notebooks/HES__5.jpeg', color_norm:object=stainNorm.ModifiedNormalizer(),verbose=False):
         self.coords = filtered_coords
