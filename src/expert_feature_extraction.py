@@ -40,7 +40,7 @@ for image_path in slides_list:
     else:
         # else load it
         mask = load_data(save_path,'mask')
-        breakpoint()
+
         slide = op.OpenSlide(image_path)
 
     # 2 decoupe de coordonnées des patchs

@@ -17,6 +17,7 @@ setup(
         "scikit-image",
         "joblib",
         "torchvision",
+        "numpy>=1.26.1",
         "opencv-python==4.8.0.74",
         "pandas",
         "PYyaml",
