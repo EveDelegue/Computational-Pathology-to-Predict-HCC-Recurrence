@@ -1,2 +1,5 @@
 albumentations
 cellseg_models_pytorch
+openslide-bin
+openslide-python
+matplotlib

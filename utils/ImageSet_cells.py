@@ -3,7 +3,7 @@ from utils.Stain_Normalization import stainNorm
 import matplotlib.pyplot as plt
 import numpy as np
 from PIL import Image
-from torchvision.transforms.functional import pil_to_tensor
+from torchvision.transforms.functional import pil_to_tensor, to_tensor
 from torchvision.transforms import v2
 import openslide as op
 import os
@@ -108,9 +108,9 @@ class CellDetectionSet(Dataset):
         patch = self.norm.transform(patch)
         if self.verbose:
             plt.imsave('reinhard.png',np.array(patch))
-        patch = self.transform(image=patch)
+        patch = self.transform(image=patch)['image']
         patch[patch<0]=0
-        return pil_to_tensor(patch),x,y
+        return to_tensor(patch).to(device=self.device),x,y
     
 class MultiscaleSet_dummy(Dataset):
     def __init__(self, slide,filtered_coords, patch_size_p,device,ref_slide_path="data/WSIs/PB/Patient 63/63A.mrxs" ,ref_patch_path='notebooks/HES__5.jpeg', color_norm:object=stainNorm.ModifiedNormalizer(),verbose=False):

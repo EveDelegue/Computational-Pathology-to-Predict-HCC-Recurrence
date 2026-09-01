@@ -47,25 +47,21 @@ for image_path in slides_list:
                 out_mask = load_data(save_path,'out_mask')
                 tumor_dict_2 = load_data(save_path,'tumor_dict_2')
 
-        # test
-        rescaling_factor = max(patch_size_p[0],patch_size_p[1])
-        for coords,prediction in tumor_dict.items():
-                        rescaled_coords = (np.array(coords)/rescaling_factor).astype(int)
-                        tumor_dict[coords]['thumb_coords_x'] = rescaled_coords[0]
-                        tumor_dict[coords]['thumb_coords_y'] = rescaled_coords[1]
         # 5 sample patchs for cell analysis
-        #if not(os.path.exists(os.path.join(save_path,'sampled_patchs.pkl'))):
-        sampled_patchs = sample_patchs(tumor_dict,out_mask,1/10)
-        print(sample_patchs)
-
         # 6 apply cellpose on the sampled patchs
         W = load_data(save_path,'W')
         H_rm = load_data(save_path,'H_rm')
         ref_W = load_data(ref_save_path,'W')
         ref_H_rm = load_data(ref_save_path,'H_rm')
         norm_dict = {'W':W,'H_rm':H_rm,"ref_W":ref_W,"ref_H_rm":ref_H_rm}
-        detection_results = cellsegmentation(slide,sampled_patchs,patch_size_p,norm_dict,batch_size=8,verbose=True,verbose_path=visual_path)
 
+        in_sampled_patchs = sample_patchs(tumor_dict_2,in_mask,1/10)
+        in_cells_results = cellsegmentation(slide,in_sampled_patchs,patch_size_p,norm_dict,verbose=False,verbose_path=visual_path)
+
+        out_sampled_patchs = sample_patchs(tumor_dict_2,out_mask,1)
+        out_cells_results = cellsegmentation(slide,out_sampled_patchs,patch_size_p,norm_dict,verbose=False,verbose_path=visual_path)
+        save_data(save_path,{'in_sampled_patchs':in_sampled_patchs,'in_cells_results':in_cells_results, 'out_cells_results':out_cells_results})
+                
         # 5 sample patchs for cell analysis
         #if not(os.path.exists(os.path.join(save_path,'sampled_patchs.pkl'))):
         #      sampled_patchs = sample_patchs(in_mask,1/10)
