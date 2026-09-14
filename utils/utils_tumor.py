@@ -417,6 +417,18 @@ def detect_architectures(slide:op.OpenSlide,filtered_coords:list[tuple[int,int]]
 
     return tumor_dict
 
+def compute_class_array(tumor_dict:dict[tuple[int,int], dict[str,int]])->np.ndarray:
+    """"Computes an array containing the number of patch for each class in a slide
+    :param result_dict: the result of the tumor architecture detection
+    :type result_dict: Dict[tuple[int,int], Dict[str,int]]
+    """
+    class_array = np.array([0,0,0])
+    for prediction in tumor_dict.values():
+        # count the frequency of each class 
+        class_array[prediction['architecture']]+=1  
+        # put a 1 in the corresponding class    
+    return class_array
+
 
 def mask_tumor(result_dict:dict[tuple[int,int], dict[str,int]],patch_size_p:tuple[int,int],slide:op.OpenSlide,verbose:bool=False,verbose_path:str="brouillons/visuals")->tuple[np.ndarray,np.ndarray , float, float, float, dict[tuple[int,int], dict[str,int]]]:
     """Creates a mask of the inside of the tumoral region, as well as the frontier. 

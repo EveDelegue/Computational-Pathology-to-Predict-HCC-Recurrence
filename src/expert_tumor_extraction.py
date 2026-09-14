@@ -21,7 +21,7 @@ for hospital in hospital_list:
 
 slides_list = [ref_slide_pth] # process ref slide first
 for patient in patients_list:
-        slides_list.extend([os.path.join(patient,slide) for slide in os.listdir(patient) if ((('.mrxs' in slide) or ('.ndpi' in slide)) and (slide!=os.path.basename(ref_slide_pth)))])
+        slides_list.extend([os.path.join(patient,slide) for slide in os.listdir(patient) if ((('.mrxs' in slide) or (slide.endswith('.ndpi')) or ('.svs' in slide)) and (slide!=os.path.basename(ref_slide_pth)))])
 
 # loop through the slides
 for image_path in slides_list:
@@ -102,9 +102,9 @@ for image_path in slides_list:
             out_mask = load_data(save_path,'out_mask')
             tumor_dict_2 = load_data(save_path,'tumor_dict_2')
 
-    # 5 sample patchs for cell analysis
-    #if not(os.path.exists(os.path.join(save_path,'sampled_patchs.pkl'))):
-    #      sampled_patchs = sample_patchs(in_mask,1/10)
-          
+        # 5 sample patchs for cell analysis
+        #if not(os.path.exists(os.path.join(save_path,'sampled_patchs.pkl'))):
+        #      sampled_patchs = sample_patchs(in_mask,1/10)
+            
+        
     
-   

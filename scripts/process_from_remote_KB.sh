@@ -1,5 +1,5 @@
 #!/bin/bash
-wsi_path="/mnt/wwn-0x50014ee2c13881aa-part1/patients_77_89/Patient_*"
+wsi_path="/mnt/wwn-0x50014ee2c13881aa-part1/patients_223_252_BJ/Patient_*"
 
 
 for patient_dir in $wsi_path; do
@@ -8,7 +8,7 @@ for patient_dir in $wsi_path; do
     #cp
     #process
     # rm 
-    dest_folder="data/WSIs/PB_2"
+    dest_folder="data/WSIs/BJ"
     mkdir $dest_folder
     cp -r $patient_dir $dest_folder
     echo "process"

@@ -9,4 +9,5 @@ tqdm
 scikit-image
 scikit-learn
 pyyaml
+openpyxl
 pandas
