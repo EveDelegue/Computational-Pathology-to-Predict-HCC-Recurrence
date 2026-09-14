@@ -14,10 +14,9 @@ from sklearn.neural_network import MLPClassifier
 from catboost import CatBoostClassifier
 from sklearn.preprocessing import RobustScaler,SplineTransformer
 from tabpfn_client import TabPFNClassifier, set_access_token
-from tabfm import tabfm_v1_0_0_pytorch,TabFMClassifier
+#from tabfm import tabfm_v1_0_0_pytorch,TabFMClassifier
 import warnings
 warnings.filterwarnings("ignore")
-
 
 set_access_token("tabpfn_sk_ZrEQfq7IBtBdWM_DJCwy4BIC4vfOZKLZhtdM3x3NaDg")
 
@@ -26,7 +25,7 @@ import yaml
 with open("config.yaml", "r") as f:
         config = yaml.safe_load(f)
 
-clinical_data = os.path.join(config["paths"]["pth_to_tab"],"Récidive_CHC.xlsx")
+clinical_data = os.path.join(config["paths"]["pth_to_tab"],"Récidive_CHC_2.xlsx")
 
 # read file in a panda dataframe
 df = pd.read_excel(clinical_data,sheet_name=None)
@@ -35,26 +34,29 @@ df = pd.read_excel(clinical_data,sheet_name=None)
 #input_cols = ['Âge','Genre masculin', 'Nombre de nodules',
 #                 'Expansif multinodulaire', 'Taille (cm)', 'Valeur exacte AFP pré-opératoire','log AFP','log taille'] #0.64 accuracy
 
-input_cols = ['log taille','Nombre de nodules']#['Âge','Genre masculin', 'Nombre de nodules',
-             #    'Nodule satellite','log AFP','log taille']
+#input_cols = ['biggest_pej',
+#              'median_pej','biggest_non_pej','median_non_pej','global_P_ratio','median_P_ratio','max_P_ratio','Âge','Genre masculin', 'Nombre de nodules',
+#             'Nodule satellite','log AFP','log taille']
+
+input_cols = ['biggest_pej','global_P_ratio','max_P_ratio', 'Nombre de nodules','log taille']
 
 output_col = 'Récidive avant 2 ans'
 
 #######
 
-X_train = df['PB'][input_cols]
-y_train = df['PB'][output_col]
+X_train = df['PB'][input_cols].dropna(axis=0,how='all').fillna(0)
+y_train = df['PB'][output_col].dropna(axis=0,how='all')
 
 X_train.to_excel('X_train.xlsx')
 
-#hist = X_train.hist()
-#plt.show()
+hist = X_train.hist()
+plt.show()
 
 ####
 
 model_list = []
 # parameter grid
-'''
+
 # SVM
 model_1 = SVC()
 
@@ -130,11 +132,13 @@ param_grid=[{'alpha':[0.001,0.1,1,10]}]
 
 model_list.append({'model':model_1,'params':param_grid})
 
+
 # tabPFN
 model_1 = TabPFNClassifier()
 param_grid=[{'softmax_temperature':[0.7,0.9,1.2]}]
 
 model_list.append({'model':model_1,'params':param_grid})
+
 '''
 # tabFM
 model = tabfm_v1_0_0_pytorch.load()
@@ -142,10 +146,12 @@ model_1 = TabFMClassifier(model=model)
 param_grid=[{}]
 
 model_list.append({'model':model_1,'params':param_grid})
+'''
 
+seed = np.random.randint(0,100)
 
 for model in model_list:
-    inner_cv = KFold(n_splits=5,shuffle=True)
+    inner_cv = KFold(n_splits=5,shuffle=True,random_state=seed)
 
     new_model = Pipeline([('scaler','passthrough'),('preprocess','passthrough'),( 'classifier',model["model"]) ])
     new_params = [{'classifier__'+k:v for k,v in parametres.items()}|{'scaler':[None,RobustScaler()]}|{'preprocess':[None,SplineTransformer()]} 

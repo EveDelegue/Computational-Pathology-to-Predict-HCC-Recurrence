@@ -1,0 +1,6 @@
+catboost
+tabpfn-client
+xgboost
+scikit-learn
+openpyxl
+safetensors
