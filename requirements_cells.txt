@@ -3,3 +3,5 @@ cellseg_models_pytorch
 openslide-bin
 openslide-python
 matplotlib
+opencv-python==4.8.0.74
+numpy>=1.26.1

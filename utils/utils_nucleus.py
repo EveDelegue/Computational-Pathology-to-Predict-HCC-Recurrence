@@ -424,7 +424,7 @@ def getNucleusFeatures_2(im,  W, Lambda, model, poids, g_kernel_size = 7, verbos
         plt.imsave(f"{verbose_path}/final_im.png", final_im)
     return final_im, contours
 
-def cellsegmentation(slide:op.OpenSlide,sampled_patchs:list[tuple[int,int]],patch_size_p:tuple[int,int],norm_dict:dict,batch_size:int=1,verbose:bool=False,verbose_path:str="brouillons/visuals")->dict:
+def cellsegmentation(slide:op.OpenSlide,sampled_patchs:list[tuple[int,int]],patch_size_p:tuple[int,int],norm_dict:dict,batch_size:int=1,verbose:bool=True,verbose_2:bool=False,verbose_path:str="brouillons/visuals")->dict:
     """ Segment nucleus in the sampled patchs
     :param sampled_patchs: coords of the patch where detection will happen
     :type sampled_patchs: list[tuple[int,int]]
@@ -432,12 +432,24 @@ def cellsegmentation(slide:op.OpenSlide,sampled_patchs:list[tuple[int,int]],patc
     :type slide: OpenSlide
     :param verbose_path: path for intermediate figures. Default = "brouillons/visuals"
     :type verbose_path: str
-    :param verbose: if we wish to show intermediate plots. Default = False 
+    :param verbose: if we wish to show intermediate plots. Default = True
     :type verbose: bool
+    :param verbose_2: if we wish to show detailed intermediate plots. Default = False
+    :type verbose_2: bool
     :param patch_size_p: patch size 
     :type patch_size_p: tuple[int,int]
     """
-    # load model
+    if verbose:
+        os.makedirs(verbose_path,exist_ok=True)
+        # plot the patchs used for detection
+        thumbnail = np.array(slide.get_thumbnail(slide.level_dimensions[-1]))
+        rescaling_factor = slide.level_downsamples[-1]
+        rescaled_p_sz =  (np.array(patch_size_p)//(rescaling_factor)).astype(int)
+        for coords in sampled_patchs:
+            rescaled_coords = (np.array(coords)//rescaling_factor).astype(int)
+            thumbnail[rescaled_coords[0]: rescaled_coords[0]+rescaled_p_sz[0], rescaled_coords[1]: rescaled_coords[1]+rescaled_p_sz[1]] = [0,0,0]
+        plt.imsave(os.path.join(verbose_path,f'sampled_{len(sampled_patchs)}_patchs.png'),thumbnail)
+ # load model
     model = CellPose.from_pretrained(weights="hgsc_v1_efficientnet_b5")
     model.set_inference_mode()
     # read patchs in a dataloader
@@ -455,7 +467,7 @@ def cellsegmentation(slide:op.OpenSlide,sampled_patchs:list[tuple[int,int]],patc
             patch = np.array(slide.read_region((y,x),0,patch_size_p).convert("RGB"))
             # normalize it
             patch = color_norm.transform(patch)
-            if verbose:
+            if verbose_2:
                 plt.imsave(os.path.join(verbose_path,'cell_patch.png'),np.array(patch))
             patch = transform(image=patch)['image']
             patch[patch<0]=0
@@ -470,7 +482,7 @@ def cellsegmentation(slide:op.OpenSlide,sampled_patchs:list[tuple[int,int]],patc
                 if cell!=0:
                     area = len(neoplastic_cells[neoplastic_cells==cell])
                     areas_list.append(area)
-            if verbose:
+            if verbose_2:
                 im_out = patch.copy() * 255
                 inflam_contours, _ = cv2.findContours(inflam_cells.astype(np.uint8),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
                 neoplastic_contours, _ = cv2.findContours(neoplastic_cells.astype(np.uint8),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
