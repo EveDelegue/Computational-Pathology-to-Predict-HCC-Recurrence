@@ -158,7 +158,9 @@ def sample_patchs(tumor_dict:dict[tuple[int,int], dict[str,int]],zone:np.ndarray
     :param proportion: proportion of the zone to be sampled
     :type proportion: float
     """
-    in_zone_dict = {k:v for k,v in tumor_dict.items() if zone[v['thumb_coords_x'],v['thumb_coords_y']]==1}
+    max_x_zone = zone.shape[0]-1 
+    max_y_zone = zone.shape[1]-1 
+    in_zone_dict = {k:v for k,v in tumor_dict.items() if zone[max(0,min(v['thumb_coords_x'],max_x_zone)),max(0,min(v['thumb_coords_y'],max_y_zone))]==1}
     idxs = np.arange(len(in_zone_dict))
     sampled_idx = np.random.choice(idxs, size=int(np.ceil( len(idxs)*proportion )) , replace=False)
     sampled_coords_list = [k for i,(k) in enumerate(in_zone_dict.keys()) if i in sampled_idx]

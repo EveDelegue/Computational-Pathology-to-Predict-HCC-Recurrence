@@ -461,6 +461,8 @@ def cellsegmentation(slide:op.OpenSlide,sampled_patchs:list[tuple[int,int]],patc
 
     transform = Compose([Resize(1024, 1024), MinMaxNormalization()])
     result_dict = {}
+    if verbose:
+        i=0
     for patch_coords in tqdm(sampled_patchs):
             x = patch_coords[0]-patch_size_p[0]//2
             y = patch_coords[1]-patch_size_p[1]//2 
@@ -483,6 +485,14 @@ def cellsegmentation(slide:op.OpenSlide,sampled_patchs:list[tuple[int,int]],patc
                     area = len(neoplastic_cells[neoplastic_cells==cell])
                     areas_list.append(area)
             if verbose_2:
+                im_out = patch.copy() * 255
+                inflam_contours, _ = cv2.findContours(inflam_cells.astype(np.uint8),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+                neoplastic_contours, _ = cv2.findContours(neoplastic_cells.astype(np.uint8),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+                cv2.drawContours(im_out,inflam_contours,-1,(0,255,0),thickness=2)
+                cv2.drawContours(im_out,neoplastic_contours,-1,(0,0,255),thickness=2)
+                plt.imsave(os.path.join(verbose_path,'cell_detection.png'),np.array(im_out)/255)
+            if verbose and i<1:
+                i+=1
                 im_out = patch.copy() * 255
                 inflam_contours, _ = cv2.findContours(inflam_cells.astype(np.uint8),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
                 neoplastic_contours, _ = cv2.findContours(neoplastic_cells.astype(np.uint8),cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
