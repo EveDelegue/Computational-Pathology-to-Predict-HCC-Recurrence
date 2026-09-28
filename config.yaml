@@ -34,6 +34,7 @@ nucleus_model:
   kernel_size: 7
 
 paths:
+  pth_to_seg: "/mnt/wwn-0x50014ee2c13881aa-part1/CHC_dataset/anotations/annotations_PB"
   pth_to_wsi: "data/WSIs"
   pth_to_patches: "data/patches"
   pth_to_patches_bis: "data/patches_bis"

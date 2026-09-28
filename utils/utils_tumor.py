@@ -558,4 +558,17 @@ def mask_tumor(result_dict:dict[tuple[int,int], dict[str,int]],patch_size_p:tupl
     return tumor_chanel,frontier , P_ratio, area_pej, area_non_pej, result_dict
 
 
-
+def mask_from_tumor_dict_2(tumor_dict_2):
+    max_xs = max([tumor_dict_2[coords]['thumb_coords_x'] for coords in tumor_dict_2.keys()])+1
+    max_ys = max([tumor_dict_2[coords]['thumb_coords_y'] for coords in tumor_dict_2.keys()])+1
+    img_np = np.zeros((max_xs,max_ys))
+    img_nt = img_np.copy()
+    img_p = img_np.copy()
+    for coords,prediction in tumor_dict_2.items():
+        if prediction["architecture"] == 0:
+            img_nt[tumor_dict_2[coords]['thumb_coords_x'],tumor_dict_2[coords]['thumb_coords_y']] = 1
+        elif prediction["architecture"] == 1:
+            img_np[tumor_dict_2[coords]['thumb_coords_x'],tumor_dict_2[coords]['thumb_coords_y']] = 1
+        elif prediction["architecture"] == 2:
+            img_p[tumor_dict_2[coords]['thumb_coords_x'],tumor_dict_2[coords]['thumb_coords_y']] = 1
+    return img_np, img_p, img_nt

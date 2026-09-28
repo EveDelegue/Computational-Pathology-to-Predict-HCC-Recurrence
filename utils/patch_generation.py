@@ -7,6 +7,62 @@ from utils.utils import get_Bright_Dark_perc
 from skimage.filters import threshold_multiotsu
 import warnings
 import itertools
+import xml.etree.ElementTree as ET
+import xmltodict
+
+def mask_from_xml(xml_file:str,ratio:float):
+    """
+    :param xml_file: path to the xml where the masks are stored
+    :param ratio: downscaling factor required for the mask
+    """
+    jsonxml = xmltodict.parse(open(xml_file).read())
+    if jsonxml["annotation_meta_data"]["destination"]["annotations"]!=None:
+        region = jsonxml["annotation_meta_data"]["destination"]["annotations"]["annotation"]
+        vlist = [region] if isinstance(region, dict) else region
+        # list the vertices of the segmentation
+        polygon_list = [{'class':vlist[i]["@name"],'polygon':(np.array([(float(v["@x"]), float(v["@y"])) for v in vlist[i]["p"]])/ratio).astype(int)} for i in range(len(vlist))]
+        
+        # vertex coordinates
+        # create empty image
+        img_np = np.zeros((max([max([punto[1] for punto in polygon["polygon"]]) for polygon in polygon_list])+1,max([max([punto[0] for punto in polygon["polygon"]]) for polygon in polygon_list])+1))
+        img_p = img_np.copy()
+        img_nt = img_np.copy()
+        # polygon mask
+        # NP
+        for polygon in polygon_list:
+            if "NP" in polygon["class"]:
+                points = polygon["polygon"]
+                img_np =  cv2.fillPoly(img_np, pts = [points], color = 255).astype(bool)
+            elif "NT" in polygon["class"]:
+                points = polygon["polygon"]
+                img_nt =  cv2.fillPoly(img_nt, pts = [points], color = 255).astype(bool)
+            elif "FI" in polygon["class"]:
+                points = polygon["polygon"]
+                img_p =  cv2.fillPoly(img_p, pts = [points], color = 255).astype(bool)
+            elif "RE" in polygon["class"]:
+                points = polygon["polygon"]
+                img_nt =  cv2.fillPoly(img_nt, pts = [points], color = 255).astype(bool)
+                       
+            else:
+                breakpoint()                    
+    return img_np, img_p, img_nt
+
+def pad_masks(mask_gt:np.ndarray,mask:np.ndarray)->tuple[np.ndarray,np.ndarray]:
+    shape_1 = np.array(mask_gt.shape)
+    shape_2 = np.array(mask.shape)
+    pad_size = ((0,0),(0,0))
+    if shape_1[0]>shape_2[0]:
+        mask = np.pad(mask,((0,shape_1[0]-shape_2[0]),(0,0)))
+    else:
+        mask_gt = np.pad(mask_gt,((0,shape_2[0]-shape_1[0]),(0,0)))
+
+    if shape_1[1]>shape_2[1]:
+        mask = np.pad(mask,((0,0),(0,shape_1[1]-shape_2[1])))
+    else:
+        mask_gt = np.pad(mask_gt,((0,0),(0,shape_2[1]-shape_1[1])))
+
+
+    return mask_gt,mask
 
 def get_patch_coords(slide:op.OpenSlide,mask:np.ndarray,size:tuple[int,int]=(280,280),step:tuple[int,int]=(1,1),verbose:bool=False,verbose_path:str="brouillons/visuals",perc_bpx:float=0.3,perc_wpx:float=0.7, bright_threshold:float=0.95, dark_threshold:float=0.25)->tuple[list[tuple[int,int]],tuple[int,int]] :
     """create a list of patch coordinates in the slide inside the mask, for the desired size and step in the desired mpp. The coordinates are not necessarily of the right size, but when rescaled to the right mpp they will.

@@ -10,4 +10,5 @@ scikit-image
 scikit-learn
 pyyaml
 openpyxl
+xmltodict
 pandas
