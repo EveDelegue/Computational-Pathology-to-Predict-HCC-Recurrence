@@ -22,7 +22,7 @@ for hospital in hospital_list:
 
 slides_list = [ref_slide_pth] # process ref slide first
 for patient in patients_list:
-        slides_list.extend([os.path.join(patient,slide) for slide in os.listdir(patient) if ((('.mrxs' in slide) or ('.ndpi' in slide) or ('.svs' in slide)) and (slide!=os.path.basename(ref_slide_pth)))])
+        slides_list.extend([os.path.join(patient,slide) for slide in os.listdir(patient) if ((('.mrxs' in slide) or (slide.endswith('.ndpi')) or ('.svs' in slide)) and (slide!=os.path.basename(ref_slide_pth)))])
 
 # loop through the slides
 for image_path in slides_list:

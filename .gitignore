@@ -1,6 +1,7 @@
 .venv*
 results
 brouillons
+brouillon
 checkpoints
 util_nbks
 catboost_info
